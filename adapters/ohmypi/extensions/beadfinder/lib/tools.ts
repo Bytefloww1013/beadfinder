@@ -57,7 +57,7 @@ export function looksLikeMutatingBash(cmd: string): boolean {
 
 export function looksLikeProductWriteBash(cmd: string): boolean {
   if (!looksLikeMutatingBash(cmd) && !/\b(cat|tee|printf)\b.*>/.test(cmd)) return false;
-  return /(^|[\s/'"] )(src|lib|app|apps|packages|backend|frontend|server|client)\//.test(cmd);
+  return /(^|[\s/'"])(src|lib|app|apps|packages|backend|frontend|server|client)\//.test(cmd);
 }
 
 /** Split a shell line into argv-ish tokens. Good enough for bd/git guards. */
