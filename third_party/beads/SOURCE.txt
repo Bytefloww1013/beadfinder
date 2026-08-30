@@ -1,0 +1,8 @@
+Upstream: https://github.com/gastownhall/beads
+Docs: https://beads.gascity.com/
+License: MIT (see LICENSE in this directory)
+
+Beads is a CLI you install separately. This directory does not vendor the Beads source tree.
+
+Persona example:
+https://github.com/gastownhall/beads/tree/main/examples/multiple-personas

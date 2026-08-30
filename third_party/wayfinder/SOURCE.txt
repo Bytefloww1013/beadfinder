@@ -1,0 +1,5 @@
+Upstream: https://github.com/mattpocock/skills
+File: skills/engineering/wayfinder/SKILL.md
+Author: Matt Pocock
+License: MIT (see LICENSE in this directory)
+Snapshot purpose: credit and comparison. Beadfinder runtime skill is ../../SKILL.md.
