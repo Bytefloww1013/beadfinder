@@ -2,7 +2,7 @@
 name: beadfinder
 description: Chart a Beads destination epic, settle one frontier ticket per session, and cut execute slices when a plan slice is decided. Use for multi-session work, persona handoff, or when markdown TODOs and GitHub issues are the wrong tracker.
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
   tracker: beads
 ---
 
