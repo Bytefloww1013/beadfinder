@@ -24,6 +24,12 @@ export function isClosedStatus(status: string | undefined): boolean {
   return s === "closed" || s === "done" || s === "complete" || s === "completed";
 }
 
+export function isLiveStatus(status: string | undefined): boolean {
+  const s = (status || "").toLowerCase();
+  if (!s) return true;
+  return !isClosedStatus(s);
+}
+
 export function personaFromRoleLabel(label: string): Persona | "" {
   switch (label) {
     case "wayfinder":
@@ -100,6 +106,31 @@ export function asIssues(json: unknown): BdIssue[] {
 
 export function issueId(issue: BdIssue): string {
   return String(issue.id || "");
+}
+
+export function mergeIssues(...lists: BdIssue[][]): BdIssue[] {
+  const seen = new Map<string, BdIssue>();
+  for (const list of lists) {
+    for (const issue of list) {
+      const id = issueId(issue);
+      if (!id || seen.has(id)) continue;
+      seen.set(id, issue);
+    }
+  }
+  return [...seen.values()];
+}
+
+/** Live = open + in_progress. `in_progress` is not always included in `--status open`. */
+export async function listLive(
+  pi: { exec: (cmd: string, args: string[], opts?: Record<string, unknown>) => Promise<{ stdout?: string; stderr?: string; code?: number }> },
+  args: string[],
+): Promise<BdIssue[]> {
+  const buckets: BdIssue[][] = [];
+  for (const status of ["open", "in_progress"]) {
+    const res = await runBd(pi, [...args, "--status", status, "--json"]);
+    buckets.push(asIssues(res.json).filter((i) => isLiveStatus(i.status)));
+  }
+  return mergeIssues(...buckets);
 }
 
 export function formatSnapshot(issues: BdIssue[], heading: string): string {
