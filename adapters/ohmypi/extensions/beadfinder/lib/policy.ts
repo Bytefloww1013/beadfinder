@@ -1,17 +1,23 @@
 /** Beadfinder hook factory body. Loaded only via index.ts. */
+/**
+ * Beadfinder policy pack for Oh My Pi.
+ * Default-export hook factory. Loaded from .omp/extensions/beadfinder/.
+ */
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
 import { asIssues, formatSnapshot, isAppendDecision, isClaimNext, isClosedStatus, isSessionBoot, issueId, labelsOf, listLive, parseClaimNextArgs, rememberScriptContext, runBd } from "./bd.ts";
 import { hooksDisabled } from "./fsutil.ts";
-import { advisor, debugEnabled, debugLog } from "./log.ts";
-import { isLikelyAdrPath, isProductPath, isProtectedPath, isTrackerSidecar } from "./paths.ts";
+import { advisor, debugLog } from "./log.ts";
+import { isBareBeadsPath, isLikelyAdrPath, isProductPath, isProtectedPath, isTrackerSidecar } from "./paths.ts";
 import { loadState, recordClosed, saveState, type Persona } from "./state.ts";
 import {
   bashCommand,
   firstBdInvocation,
   flagValue,
+  globSearchPaths,
   hasFlag,
   inputPath,
   isBashTool,
+  isGlobTool,
   isReadTool,
   isSpawnTool,
   isWriteTool,
@@ -35,6 +41,7 @@ function note(pi: HookAPI, text: string, display = true): void {
       attribution: "agent",
     });
   } catch {
+    // older runtimes may only accept a string
     try {
       (pi.sendMessage as unknown as (s: string) => void)(text);
     } catch {
@@ -55,12 +62,15 @@ function warn(cwd: string, hook: string, reason: string, details?: unknown) {
 async function liveSnapshot(pi: HookAPI): Promise<string> {
   const dest = await listLive(pi, ["list", "--label", "beadfinder:destination", "--type", "epic"]);
   const slices = await listLive(pi, ["list", "--label", "beadfinder:slice"]);
+  const inProg = asIssues((await runBd(pi, ["list", "--status", "in_progress", "--json"])).json);
   const readyRes = await runBd(pi, ["ready", "--limit", "20", "--json"]);
   const ready = asIssues(readyRes.json);
   const lines = [
     "Live Beads snapshot (do not trust earlier chat for ticket status):",
+    "Beads store is `.beads/` (hidden). Do not glob `beads/`. Use bd show/list --json.",
     formatSnapshot(dest, "Live destinations (open + in_progress)"),
     formatSnapshot(slices, "Live slices (open + in_progress, any type)"),
+    formatSnapshot(inProg, "In progress (any label)"),
     formatSnapshot(ready, "Ready work (bd ready)"),
   ];
   return lines.join("\n");
@@ -76,6 +86,8 @@ async function refreshAndInject(pi: HookAPI, cwd: string, force = false): Promis
   const now = Date.now();
   if (!force && now - state.lastRefreshAt < REFRESH_MS) return;
   const snap = await liveSnapshot(pi);
+  state.lastRefreshAt = now;
+  state.lastSnapshot = snap;
   if (state.claimedId) {
     const issue = await showIssue(pi, state.claimedId);
     if (issue && isClosedStatus(issue.status)) {
@@ -111,6 +123,7 @@ function personaWall(cwd: string, persona: Persona, path: string): string | "" {
     case "implementer":
       return "";
     default:
+      if (isProtectedPath(cwd, path)) return `Protected path: ${path}`;
       return "";
   }
 }
@@ -176,6 +189,18 @@ export function createBeadfinder(pi: HookAPI): void {
     const input = (event.input || {}) as Record<string, unknown>;
     const state = loadState(cwd);
 
+    if (isGlobTool(name) || isReadTool(name)) {
+      const bad = globSearchPaths(input).find((p) => isBareBeadsPath(cwd, p));
+      if (bad) {
+        return block(
+          cwd,
+          "beads-store",
+          `Beads lives in .beads (hidden), not ${bad}. Use bd show/list --json or glob .beads.`,
+          { path: bad },
+        );
+      }
+    }
+
     if (isReadTool(name) || isWriteTool(name)) {
       const p = inputPath(input);
       if (p && isProtectedPath(cwd, p)) {
@@ -221,7 +246,7 @@ export function createBeadfinder(pi: HookAPI): void {
       const hasOne = /one ticket only/i.test(text);
       const hasClaim = /claim before work/i.test(text);
       if (text && !(hasId && hasOne && hasClaim)) {
-        warn(cwd, "spawn-contract", "Child prompt is missing ticket id, one ticket only, or claim before work.", {
+        warn(cwd, "spawn-contract", "Child prompt is missing ticket id, “one ticket only”, or “claim before work”.", {
           hasId,
           hasOne,
           hasClaim,
@@ -229,7 +254,7 @@ export function createBeadfinder(pi: HookAPI): void {
         return block(
           cwd,
           "spawn-contract",
-          "Spawn prompt must include ticket title, id, parent slice id, ADR gists, one ticket only, and claim before work.",
+          "Spawn prompt must include ticket title, id, parent slice id, ADR gists, “one ticket only”, and “claim before work”.",
         );
       }
     }
@@ -273,6 +298,10 @@ export function createBeadfinder(pi: HookAPI): void {
     if (!bd) return;
 
     const sub = bd[1] || "";
+
+    if (sub === "ready" && hasFlag(bd, "--claim") === false && /bd\s+update\b/.test(cmd) && /--claim/.test(cmd)) {
+      return block(cwd, "claim-gate", "Do not select then claim in two steps. Use claim-next.sh or bd ready --claim.");
+    }
 
     if (sub === "update" && hasFlag(bd, "--claim")) {
       const st = loadState(cwd);
@@ -318,6 +347,17 @@ export function createBeadfinder(pi: HookAPI): void {
         if (st.persona === "implementer" && /beadfinder:review/.test(labels)) {
           return block(cwd, "bd-close-guard", "Implementer may not close the review ticket.");
         }
+        if (st.persona === "reviewer" && /beadfinder:review/.test(labels)) {
+          const reason = flagValue(bd, "--reason") || flagValue(bd, "-r");
+          if (/lgtm/i.test(reason)) {
+            const blockers = await runBd(pi, ["blocked", "--json"]);
+            const still = asIssues(blockers.json).filter((i) => String(i.id || "").length > 0);
+            // best-effort: if bd blocked exists and lists this review
+            if (still.some((i) => issueId(i) === id || labelsOf(i).includes("review"))) {
+              warn(cwd, "bd-close-guard", "Possible open blockers while closing review LGTM", still.map(issueId));
+            }
+          }
+        }
         if (issue && (issue.type === "epic" || issue.issue_type === "epic" || /epic/i.test(String(issue.issue_type || issue.type || "")))) {
           const kids = asIssues((await runBd(pi, ["list", "--parent", id, "--status", "open", "--json"])).json);
           if (kids.length) {
@@ -353,6 +393,7 @@ export function createBeadfinder(pi: HookAPI): void {
     const name = toolName(event);
     const input = (event.input || {}) as Record<string, unknown>;
     const cmd = isBashTool(name) ? bashCommand(input) : "";
+
     const text = resultText(event);
 
     if (isClaimNext(cmd)) {
@@ -401,19 +442,9 @@ export function createBeadfinder(pi: HookAPI): void {
       const closedHits = findClosedMentions(text);
       if (closedHits.length) {
         const st = loadState(cwd);
-        for (const closedId of closedHits) st.seenClosed[closedId] = new Date().toISOString();
+        for (const id of closedHits) st.seenClosed[id] = new Date().toISOString();
         saveState(cwd, st);
       }
-    }
-
-    if (debugEnabled(cwd) && (event as { isError?: boolean }).isError) {
-      debugLog(cwd, {
-        level: "error",
-        source: "hook",
-        hook: "tool_result",
-        message: `${name} failed`,
-        details: { cmd: cmd.slice(0, 400), text: text.slice(0, 800) },
-      });
     }
   });
 

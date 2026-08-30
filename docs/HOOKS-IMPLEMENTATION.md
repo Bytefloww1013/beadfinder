@@ -60,10 +60,11 @@ Never store secrets. Safe to delete; hooks rebuild it.
 
 ### session-boot-inject + status-refresh
 
-- `session_start`: `bd prime`, list **live** destinations and slices (`open` + `in_progress`; slices are not filtered to `--type epic`), plus `bd ready --json`.
+- `session_start`: `bd prime`, list **live** destinations and slices (`--status open,in_progress` as one query; slices are not filtered to `--type epic`), unlabeled `in_progress`, plus `bd ready --json`. Snapshot also says the store is `.beads/`.
 - `before_agent_start` / throttled `turn_start`: reuse snapshot; `bd show` the claimed id; if closed, warn and `recordClosed`.
 - After `bd close` in `tool_result`, force refresh.
 - Do not use only `bd list --label beadfinder:slice --type epic --status open`. That reported “none” while `bd ready` still returned `in_progress` / non-epic slices.
+- Do not print two JSON arrays from session-boot. Repeating `--status` overwrites; use the comma form. `asIssues` unwraps `{issues: [...]}` as well as a raw array.
 
 ### debug logging
 
@@ -71,6 +72,8 @@ Never store secrets. Safe to delete; hooks rebuild it.
 - `info` only when `BEADFINDER_DEBUG=verbose`.
 - `status-stale` looks at the **primary** `bd show` issue status, not the word “closed” anywhere in the JSON.
 - Empty-frontier only from `claim-next.sh` / `frontier.sh` output (`[]` or `{"error":"empty frontier"}`).
+- `registerDebug` is idempotent. `debugLog` drops identical lines within 80ms. Policy does not also log generic `tool_result` errors (that was a duplicate with debug).
+- Glob/read of `beads/` is a `beads-store` block, not a raw glob error.
 
 ### claim-gate
 

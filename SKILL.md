@@ -2,7 +2,7 @@
 name: beadfinder
 description: Chart a Beads destination epic, settle one frontier ticket per session, and cut execute slices when a plan slice is decided. Use for multi-session work, persona handoff, or when markdown TODOs and GitHub issues are the wrong tracker.
 metadata:
-  version: "0.3.1"
+  version: "0.3.2"
   tracker: beads
 ---
 
@@ -127,4 +127,5 @@ When the plan slice has no open children and the way for *that slice* is clear:
 - Do not `blocks`-chain an entire implement slice into a linked list.
 - If `claim-next` exits 2, stop and report empty frontier.
 - Ticket status comes from a fresh `bd show --json`, not from earlier chat. A closed bead stays closed.
+- Tracker dir is `.beads`. Do not glob `beads/`.
 ---

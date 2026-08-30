@@ -99,8 +99,15 @@ export async function runBd(
 
 export function asIssues(json: unknown): BdIssue[] {
   if (!json) return [];
-  if (Array.isArray(json)) return json as BdIssue[];
-  if (typeof json === "object") return [json as BdIssue];
+  if (Array.isArray(json)) return json.filter((i) => i && typeof i === "object") as BdIssue[];
+  if (typeof json === "object") {
+    const o = json as Record<string, unknown>;
+    for (const key of ["issues", "items", "data"]) {
+      if (Array.isArray(o[key])) return asIssues(o[key]);
+    }
+    if (o.issue && typeof o.issue === "object") return asIssues(o.issue);
+    if (o.id || o.title || o.status) return [json as BdIssue];
+  }
   return [];
 }
 
@@ -120,11 +127,18 @@ export function mergeIssues(...lists: BdIssue[][]): BdIssue[] {
   return [...seen.values()];
 }
 
-/** Live = open + in_progress. `in_progress` is not always included in `--status open`. */
+/**
+ * Live = open + in_progress. Beads takes comma-separated --status;
+ * repeating --status overwrites. Fall back to two queries on older CLIs.
+ */
 export async function listLive(
   pi: { exec: (cmd: string, args: string[], opts?: Record<string, unknown>) => Promise<{ stdout?: string; stderr?: string; code?: number }> },
   args: string[],
 ): Promise<BdIssue[]> {
+  const combined = await runBd(pi, [...args, "--status", "open,in_progress", "--json"]);
+  if (combined.ok) {
+    return asIssues(combined.json).filter((i) => isLiveStatus(i.status));
+  }
   const buckets: BdIssue[][] = [];
   for (const status of ["open", "in_progress"]) {
     const res = await runBd(pi, [...args, "--status", status, "--json"]);

@@ -9,7 +9,10 @@
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
 import { asIssues, isClaimNext, isClosedStatus, isFrontier } from "./bd.ts";
 import { debugEnabled, debugLog } from "./log.ts";
-import { bashCommand, firstBdInvocation, isBashTool, toolName } from "./tools.ts";
+import { isBareBeadsPath } from "./paths.ts";
+import { bashCommand, firstBdInvocation, globSearchPaths, isBashTool, isGlobTool, toolName } from "./tools.ts";
+
+let registered = false;
 
 function resultText(event: { content?: unknown; details?: unknown }): string {
   const parts: string[] = [];
@@ -20,6 +23,7 @@ function resultText(event: { content?: unknown; details?: unknown }): string {
       const o = v as Record<string, unknown>;
       if (typeof o.text === "string") parts.push(o.text);
       if (typeof o.stdout === "string") parts.push(o.stdout);
+      if (typeof o.stderr === "string") parts.push(o.stderr);
     }
   };
   walk(event.content);
@@ -29,7 +33,7 @@ function resultText(event: { content?: unknown; details?: unknown }): string {
 
 function primaryIssueStatus(text: string): string {
   try {
-    const json = JSON.parse(text);
+    const json = JSON.parse(text.trim());
     const issue = asIssues(json)[0];
     return issue ? String(issue.status || "") : "";
   } catch {
@@ -37,7 +41,17 @@ function primaryIssueStatus(text: string): string {
   }
 }
 
+function isBareBeadsMiss(cwd: string, name: string, input: Record<string, unknown>, text: string): boolean {
+  if (isGlobTool(name) || name === "read") {
+    if (globSearchPaths(input).some((p) => isBareBeadsPath(cwd, p))) return true;
+  }
+  return /path not found:\s*beads\b/i.test(text);
+}
+
 export function registerDebug(pi: HookAPI): void {
+  if (registered) return;
+  registered = true;
+
   pi.on("tool_call", async (event, ctx) => {
     if (!debugEnabled(ctx.cwd)) return;
     const name = toolName(event);
@@ -56,16 +70,27 @@ export function registerDebug(pi: HookAPI): void {
     if (!debugEnabled(ctx.cwd)) return;
     const name = toolName(event);
     const text = resultText(event);
-    const cmd = isBashTool(name) ? bashCommand((event.input || {}) as Record<string, unknown>) : "";
+    const input = (event.input || {}) as Record<string, unknown>;
+    const cmd = isBashTool(name) ? bashCommand(input) : "";
 
     if ((event as { isError?: boolean }).isError) {
-      debugLog(ctx.cwd, {
-        level: "error",
-        source: "advisor",
-        hook: "beadfinder-debug",
-        message: `${name} returned an error`,
-        details: { cmd: cmd.slice(0, 400), text: text.slice(0, 1200) },
-      });
+      if (isBareBeadsMiss(ctx.cwd, name, input, text)) {
+        debugLog(ctx.cwd, {
+          level: "concern",
+          source: "advisor",
+          hook: "beads-store",
+          message: "Glob/read missed the Beads store. Use .beads or bd show/list --json, not beads/.",
+          details: { cmd: cmd.slice(0, 240), text: text.slice(0, 400) },
+        });
+      } else {
+        debugLog(ctx.cwd, {
+          level: "error",
+          source: "advisor",
+          hook: "beadfinder-debug",
+          message: `${name} returned an error`,
+          details: { cmd: cmd.slice(0, 400), text: text.slice(0, 1200) },
+        });
+      }
     }
 
     const bd = firstBdInvocation(cmd);

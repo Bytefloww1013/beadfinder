@@ -2,7 +2,7 @@
 name: beadfinder-debug
 description: Same orchestrator as beadfinder, plus advisor logging to .omp/beadfinder-debug.log. Use when a session is mis-reading bead status, skipping claims, or you need a trail of hook blocks and agent concerns.
 metadata:
-  version: "0.3.1"
+  version: "0.3.2"
   tracker: beads
   debug: true
 ---

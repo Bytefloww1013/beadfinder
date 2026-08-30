@@ -22,15 +22,56 @@ if ! command -v bd >/dev/null 2>&1; then
   exit 1
 fi
 
-# `in_progress` is live work. `--status open` does not always include it.
+# One JSON document. Beads wants comma-separated --status (repeating overwrites).
+# Fall back to merging two queries so we never print `[]` then a second array.
 list_live() {
-  bd list "$@" --status open --json || true
-  bd list "$@" --status in_progress --json || true
+  local out=""
+  if out="$(bd list "$@" --status open,in_progress --json 2>/dev/null)" && [[ -n "$out" ]]; then
+    printf '%s\n' "$out"
+    return 0
+  fi
+  python3 - "$@" <<'PY' || true
+import json, subprocess, sys
+
+def take(raw, seen, order):
+    raw = (raw or "").strip()
+    if not raw:
+        return
+    try:
+        data = json.loads(raw)
+    except Exception:
+        return
+    if isinstance(data, dict):
+        data = data.get("issues") or data.get("items") or ([data] if data.get("id") else [])
+    if not isinstance(data, list):
+        return
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        i = item.get("id")
+        if i and i not in seen:
+            seen[i] = item
+            order.append(i)
+
+seen = {}
+order = []
+args = sys.argv[1:]
+for status in ("open", "in_progress"):
+    p = subprocess.run(
+        ["bd", "list", *args, "--status", status, "--json"],
+        capture_output=True,
+        text=True,
+    )
+    take(p.stdout, seen, order)
+print(json.dumps([seen[i] for i in order], indent=2))
+PY
 }
 
 echo "=== bd prime ==="
 bd prime || true
 
+echo
+echo "Beads store is .beads/ (hidden). Do not glob beads/. Use bd show/list --json."
 echo
 echo "=== live destinations (open + in_progress) ==="
 list_live --label beadfinder:destination --type epic
@@ -38,6 +79,10 @@ list_live --label beadfinder:destination --type epic
 echo
 echo "=== live slices (open + in_progress, any type) ==="
 list_live --label beadfinder:slice
+
+echo
+echo "=== in progress (any label) ==="
+bd list --status in_progress --json || true
 
 echo
 echo "=== ready work ==="

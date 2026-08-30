@@ -1,6 +1,6 @@
 # Beadfinder hooks — human reference
 
-v0.3.1. OMP only. OpenCode ports wait until we know which of these actually earn their keep.
+v0.3.2. OMP only. OpenCode ports wait until we know which of these actually earn their keep.
 
 These hooks sit on Oh My Pi events. The model cannot talk them out of a block. Skills still explain the rules; hooks refuse the move.
 
@@ -47,12 +47,13 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 
 **Does:**
 - Runs `bd prime`.
-- Lists live destination epics and live slices (`open` and `in_progress`, slices of any type).
-- Lists `bd ready` so a claimed/in-progress ticket is not hidden behind “open slices: none”.
+- Lists live destination epics and live slices (`open` and `in_progress` in **one** `bd list --status open,in_progress` query; slices of any type).
+- Lists unlabeled `in_progress` tickets and `bd ready`.
+- Reminds the agent that the store is `.beads/`, not `beads/`.
 - Injects that live snapshot into the session.
 - If hook state still has a claimed id, tells the agent to `bd show` it before acting.
 
-**Why:** chat memory goes stale. `--status open` plus `--type epic` missed ready `in_progress` work (the 0.3 debug log: snapshot said none, `bd ready` still had the Auth slice).
+**Why:** chat memory goes stale. `--status open` plus `--type epic` missed ready `in_progress` work (the 0.3 debug log: snapshot said none, `bd ready` still had the Auth slice). Two `--status` flags on one command silently overwrite; 0.3.1's two-query session-boot also printed two JSON arrays, so a parser could see `[]` and stop.
 
 **You see:** a hidden/custom beadfinder message with destinations, slices, and ready work.
 
@@ -167,6 +168,16 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 
 ---
 
+## beads-store
+
+**When:** `glob` / `read` / `list_dir` of `beads` or `beads/`.
+
+**Blocks:** looking at `beads/` (no leading dot).
+
+**Why:** the 0.3 debug log had `glob failed` / `Path not found: beads`. The database is `.beads/`. Agents should `bd show` / `bd list --json` instead of walking the store.
+
+---
+
 ## beads-only
 
 **When:** writes to `TODO.md` / `ISSUES.md` / GitHub issue templates; `gh issue create`.
@@ -221,18 +232,18 @@ Not a gate. Only records.
 
 **On when:**
 - `bash install.sh --omp --debug` installed `skills/beadfinder-debug`, or
-- `BEADFINDER_DEBUG=1` or `verbose`
+- `BEADFINDER_DEBUG=1`
 
 **Writes:** `.omp/beadfinder-debug.log`
 
 **Sources:**
 - `advisor` — hook blocks, stale-status warnings, empty frontier
-- `hook` — turn/agent lifecycle while `BEADFINDER_DEBUG=verbose`
+- `hook` — turn/agent lifecycle while debug is on
 - `agent` — lines the model writes with `python3 scripts/debug-log.py`
 
-`status-stale` only fires when `bd show`’s **primary** issue is closed. Empty-frontier only fires for `claim-next.sh` / `frontier.sh`.
-
 **Use when:** a session treats a closed bead as open, a hook block is surprising, or you want a trail after an AFK run.
+
+`status-stale` only fires on the **primary** `bd show` issue status, not the word “closed” in a description or child list. Empty-frontier only fires for `claim-next.sh` / `frontier.sh` output. Identical log lines within 80ms are dropped (OMP sometimes double-fires `tool_call`).
 
 The debug skill is beadfinder plus “log the mismatch, re-query `bd show`.” It does not change graph rules.
 
@@ -243,7 +254,7 @@ The debug skill is beadfinder plus “log the mismatch, re-query `bd show`.” I
 | Variable | Default | Meaning |
 |---|---|---|
 | `BEADFINDER_HOOKS` | on | `off` / `0` / `false` disables policy |
-| `BEADFINDER_DEBUG` | unset | `1`/`on` force log; `verbose` also writes info lines |
+| `BEADFINDER_DEBUG` | unset | force the log even without the debug skill |
 | `BEADFINDER_REFRESH_MS` | `45000` | min ms between live snapshots |
 | `BEADFINDER_MUTATING_BUDGET` | `80` | write/edit cap per session |
 | `BEADFINDER_YIELD_ON_STOP` | `afk` | `afk`, `1`, or `0` |

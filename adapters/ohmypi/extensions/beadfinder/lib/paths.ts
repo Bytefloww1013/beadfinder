@@ -42,6 +42,16 @@ export function isBeadsPath(cwd: string, p: string): boolean {
   return BEADS_OK.some((ok) => rel.startsWith(ok) || rel === ok.replace(/\/$/, ""));
 }
 
+/** `beads/` without the leading dot. The database is `.beads/`. */
+export function isBareBeadsPath(cwd: string, p: string): boolean {
+  if (!p) return false;
+  const rel = posixish(relToCwd(cwd, p)).replace(/^\.\//, "").replace(/\/$/, "");
+  const first = rel.split("/")[0];
+  if (first === "beads") return true;
+  const raw = posixish(p).replace(/^\.\//, "").replace(/\/$/, "");
+  return raw === "beads" || raw.startsWith("beads/");
+}
+
 export function isProductPath(cwd: string, p: string): boolean {
   const rel = posixish(relToCwd(cwd, p));
   if (rel.startsWith(".beads/") || rel.startsWith(".omp/") || rel.startsWith(".git/")) return false;
