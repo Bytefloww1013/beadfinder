@@ -5,8 +5,7 @@
  */
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
 import { debugEnabled, debugLog } from "./lib/log.ts";
-import { bashCommand, isBashTool, toolName } from "./lib/tools.ts";
-import { firstBdInvocation } from "./lib/bd.ts";
+import { bashCommand, firstBdInvocation, isBashTool, toolName } from "./lib/tools.ts";
 
 function resultText(event: { content?: unknown; details?: unknown }): string {
   const parts: string[] = [];
