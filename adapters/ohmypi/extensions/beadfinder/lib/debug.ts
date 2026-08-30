@@ -1,9 +1,13 @@
 /**
  * Debug advisor. Only writes when beadfinder-debug is installed or
- * BEADFINDER_DEBUG=1. Policy hooks call lib/log.ts directly; this file
- * watches tools and agent turns for extra concerns.
+ * BEADFINDER_DEBUG=1/verbose. Policy hooks call lib/log.ts directly; this
+ * file watches tools and agent turns for extra concerns.
+ *
+ * Default log levels: error, warning, concern.
+ * Info (tool_call / turn_end / agent_end) needs BEADFINDER_DEBUG=verbose.
  */
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
+import { asIssues, isClaimNext, isClosedStatus, isFrontier } from "./bd.ts";
 import { debugEnabled, debugLog } from "./log.ts";
 import { bashCommand, firstBdInvocation, isBashTool, toolName } from "./tools.ts";
 
@@ -21,6 +25,16 @@ function resultText(event: { content?: unknown; details?: unknown }): string {
   walk(event.content);
   walk(event.details);
   return parts.join("\n");
+}
+
+function primaryIssueStatus(text: string): string {
+  try {
+    const json = JSON.parse(text);
+    const issue = asIssues(json)[0];
+    return issue ? String(issue.status || "") : "";
+  } catch {
+    return "";
+  }
 }
 
 export function registerDebug(pi: HookAPI): void {
@@ -55,21 +69,24 @@ export function registerDebug(pi: HookAPI): void {
     }
 
     const bd = firstBdInvocation(cmd);
-    if (
-      bd &&
-      (bd[1] === "show" || bd[1] === "list" || bd[1] === "ready") &&
-      /\bstatus["']?\s*[:=]\s*["']?(closed|done)\b/i.test(text)
-    ) {
-      debugLog(ctx.cwd, {
-        level: "concern",
-        source: "advisor",
-        hook: "status-stale",
-        message: "Beads output mentions a closed/done status. Chat history may still say this ticket is open.",
-        details: { cmd: cmd.slice(0, 240), snippet: text.slice(0, 400) },
-      });
+    if (bd && bd[1] === "show") {
+      const status = primaryIssueStatus(text);
+      if (isClosedStatus(status)) {
+        const shownId = bd[2] && !bd[2].startsWith("-") ? bd[2] : "";
+        debugLog(ctx.cwd, {
+          level: "concern",
+          source: "advisor",
+          hook: "status-stale",
+          message: `${shownId || "shown ticket"} is ${status} on disk. Do not treat it as open from chat history.`,
+          details: { cmd: cmd.slice(0, 240), status, shownId },
+        });
+      }
     }
 
-    if (/empty frontier|"error":"empty frontier"/.test(text)) {
+    if (
+      (isClaimNext(cmd) || isFrontier(cmd)) &&
+      (/"error"\s*:\s*"empty frontier"/.test(text) || text.trim() === "[]" || text.trim() === "null")
+    ) {
       debugLog(ctx.cwd, {
         level: "warning",
         source: "advisor",

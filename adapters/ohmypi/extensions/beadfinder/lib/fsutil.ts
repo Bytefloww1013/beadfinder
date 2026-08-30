@@ -30,7 +30,11 @@ export function hooksDisabled(): boolean {
 
 export function debugForced(): boolean {
   const v = (process.env.BEADFINDER_DEBUG || "").toLowerCase();
-  return v === "1" || v === "true" || v === "on";
+  return v === "1" || v === "true" || v === "on" || v === "verbose";
+}
+
+export function debugVerbose(): boolean {
+  return (process.env.BEADFINDER_DEBUG || "").toLowerCase() === "verbose";
 }
 
 export function ensureDir(filePath: string): void {

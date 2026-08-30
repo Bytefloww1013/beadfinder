@@ -1,4 +1,4 @@
-# Beadfinder 0.3
+# Beadfinder 0.3.1
 
 Pack root: `artifacts/beadfinder/` (this repo).
 
@@ -29,9 +29,9 @@ beadfinder/
   references/
 ```
 
-Install: `bash install.sh --omp` copies skills, agents, and the OMP extension. `--debug` also copies `beadfinder-debug`.
+Install: `bash install.sh --omp` copies skills, agents, and the OMP extension. `--debug` also copies `beadfinder-debug`. `install.sh` `chmod a+x` on copied `*.sh` so `session-boot.sh` can exec `frontier.sh`.
 
-## What 0.3 still is not
+## What 0.3.1 still is not
 
 - Not smoke-tested against every OMP build’s extension loader. If hooks are silent, add `.omp/extensions/beadfinder` to `.omp/settings.json` `extensions`.
 - OpenCode hook pack not started.
