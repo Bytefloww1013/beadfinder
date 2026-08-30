@@ -1,6 +1,6 @@
 /** Beadfinder hook factory body. Loaded only via index.ts. */
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
-import { asIssues, formatSnapshot, isAppendDecision, isClaimNext, isClosedStatus, isSessionBoot, issueId, labelsOf, parseClaimNextArgs, rememberScriptContext, runBd } from "./bd.ts";
+import { asIssues, formatSnapshot, isAppendDecision, isClaimNext, isClosedStatus, isSessionBoot, issueId, labelsOf, listLive, parseClaimNextArgs, rememberScriptContext, runBd } from "./bd.ts";
 import { hooksDisabled } from "./fsutil.ts";
 import { advisor, debugEnabled, debugLog } from "./log.ts";
 import { isLikelyAdrPath, isProductPath, isProtectedPath, isTrackerSidecar } from "./paths.ts";
@@ -53,12 +53,15 @@ function warn(cwd: string, hook: string, reason: string, details?: unknown) {
 }
 
 async function liveSnapshot(pi: HookAPI): Promise<string> {
-  const dest = await runBd(pi, ["list", "--label", "beadfinder:destination", "--type", "epic", "--status", "open", "--json"]);
-  const slices = await runBd(pi, ["list", "--label", "beadfinder:slice", "--type", "epic", "--status", "open", "--json"]);
+  const dest = await listLive(pi, ["list", "--label", "beadfinder:destination", "--type", "epic"]);
+  const slices = await listLive(pi, ["list", "--label", "beadfinder:slice"]);
+  const readyRes = await runBd(pi, ["ready", "--limit", "20", "--json"]);
+  const ready = asIssues(readyRes.json);
   const lines = [
     "Live Beads snapshot (do not trust earlier chat for ticket status):",
-    formatSnapshot(asIssues(dest.json), "Open destinations"),
-    formatSnapshot(asIssues(slices.json), "Open slices"),
+    formatSnapshot(dest, "Live destinations (open + in_progress)"),
+    formatSnapshot(slices, "Live slices (open + in_progress, any type)"),
+    formatSnapshot(ready, "Ready work (bd ready)"),
   ];
   return lines.join("\n");
 }
