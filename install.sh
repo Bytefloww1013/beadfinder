@@ -97,12 +97,21 @@ fi
 
 if [[ "$HARNESS" == "omp" ]]; then
   cp "$PACK/adapters/ohmypi/agents/"*.md "$AGENTS/"
-  EXT="$ROOT/extensions/beadfinder"
-  rm -rf "$EXT"
+  EXT_ROOT="$ROOT/extensions"
+  EXT="$EXT_ROOT/beadfinder"
+  mkdir -p "$EXT_ROOT"
+  # OMP treats every top-level *.ts under extensions/ as its own entry.
+  # Older copies flattened index.ts + debug.ts here and then failed to resolve
+  # firstBdInvocation. Wipe those strays before installing the pack folder.
+  rm -f "$EXT_ROOT/index.ts" "$EXT_ROOT/debug.ts"
+  rm -rf "$EXT_ROOT/lib" "$EXT"
   mkdir -p "$EXT"
   cp -R "$PACK/adapters/ohmypi/extensions/beadfinder/." "$EXT/"
+  rm -f "$EXT/debug.ts"
   echo "extensions in $EXT"
-  echo "if hooks do not fire, add that path to .omp/settings.json under \"extensions\""
+  echo "only $EXT/index.ts is the OMP entry; helpers stay in $EXT/lib/"
+  echo "if hooks do not fire, set .omp/settings.json to:"
+  echo '  { "extensions": [".omp/extensions/beadfinder"] }'
 else
   cp "$PACK/adapters/opencode/agents/"*.md "$AGENTS/"
 fi
