@@ -1,6 +1,8 @@
 import { loadState, saveState, type Persona } from "./state.ts";
 import { flagValue, hasFlag, tokenize } from "./tools.ts";
 
+export { firstBdInvocation } from "./tools.ts";
+
 export type BdIssue = {
   id?: string;
   title?: string;
