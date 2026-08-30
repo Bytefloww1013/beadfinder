@@ -14,18 +14,22 @@ Needs the Beads CLI (`bd`) on `PATH`.
 git clone https://github.com/Bytefloww1013/beadfinder.git
 cd beadfinder
 
+# Do not use sudo. Writes only under this repo or $HOME.
+
 # Oh My Pi, this project
-./install.sh --omp
+bash install.sh --omp
 
 # Oh My Pi, every project
-./install.sh --omp --global
+bash install.sh --omp --global
 
 # OpenCode, this project
-./install.sh --opencode
+bash install.sh --opencode
 
 # OpenCode, every project
-./install.sh --opencode --global
+bash install.sh --opencode --global
 ```
+
+`install.sh` is checked in as a normal file (`100644`), so `./install.sh` can fail with permission denied. `bash install.sh` does not need the execute bit.
 
 `--omp` writes `.omp/skills` + `.omp/agents` (or `~/.omp/agent` with `--global`).
 `--opencode` writes `.opencode/skills` + `.opencode/agents` (or `~/.config/opencode` with `--global`).
