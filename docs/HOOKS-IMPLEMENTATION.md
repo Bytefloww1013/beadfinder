@@ -14,9 +14,10 @@ This is the working plan for agents changing the hook pack. Humans who only need
 
 ```
 adapters/ohmypi/extensions/beadfinder/
-  index.ts          policy factory (default export)
-  debug.ts          registerDebug()
+  index.ts          thin default-export factory
   lib/
+    policy.ts       hook body (createBeadfinder)
+    debug.ts        registerDebug()
     fsutil.ts       paths, flags, json helpers
     state.ts        .omp/beadfinder/state.json
     tools.ts        tool/argv parsing
@@ -59,10 +60,17 @@ Never store secrets. Safe to delete; hooks rebuild it.
 
 ### session-boot-inject + status-refresh
 
-- `session_start`: `bd prime`, list open destinations and slices, inject snapshot.
+- `session_start`: `bd prime`, list **live** destinations and slices (`open` + `in_progress`; slices are not filtered to `--type epic`), plus `bd ready --json`.
 - `before_agent_start` / throttled `turn_start`: reuse snapshot; `bd show` the claimed id; if closed, warn and `recordClosed`.
 - After `bd close` in `tool_result`, force refresh.
-- This is the fix for stale “still open” chat memory. Do not try to parse the whole transcript for assumed-open ids in v0.3.
+- Do not use only `bd list --label beadfinder:slice --type epic --status open`. That reported “none” while `bd ready` still returned `in_progress` / non-epic slices.
+
+### debug logging
+
+- Write `error` / `warning` / `concern` when debug skill is installed or `BEADFINDER_DEBUG=1`.
+- `info` only when `BEADFINDER_DEBUG=verbose`.
+- `status-stale` looks at the **primary** `bd show` issue status, not the word “closed” anywhere in the JSON.
+- Empty-frontier only from `claim-next.sh` / `frontier.sh` output (`[]` or `{"error":"empty frontier"}`).
 
 ### claim-gate
 
@@ -79,7 +87,7 @@ Never store secrets. Safe to delete; hooks rebuild it.
 
 - Spawn tool names we match: `task`, `spawn`, `subagent`, `agent`, plus any name containing `task`.
 - Flatten all string fields in the tool input and search that text.
-- HITL match: `\\bhitl\\b`, `beadfinder:grill`, `grill ticket`.
+- HITL match: `\bhitl\b`, `beadfinder:grill`, `grill ticket`.
 - Spawn contract is strict on purpose. If false-positives show up on a real OMP task schema, loosen the id regex — do not drop the three required phrases.
 
 ### phase-gate
