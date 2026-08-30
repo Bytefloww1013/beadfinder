@@ -1,0 +1,15 @@
+# Beads + beadfinder
+
+This repo uses **bd (Beads)** for multi-session work. Do not use markdown TODOs or GitHub issues for that work.
+
+Skill: `beadfinder`. Companions: `grill`, `research`, `to-spec`.
+Primary agent: `wayfinder`. Workers: `architect`, `implementer`, `reviewer`, `product`.
+
+```bash
+bd prime
+bd ready --parent <slice-id> --label implementation --unassigned --json
+bd update <id> --claim --json
+bd close <id> --reason "<gist>" --json
+```
+
+Claim before work. One non-research ticket per session. HITL stays in the wayfinder session.
