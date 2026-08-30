@@ -4,15 +4,17 @@ set -euo pipefail
 
 usage() {
   cat >&2 <<'EOF'
-usage: install.sh --omp|--opencode [--global] [--dest DIR]
+usage: install.sh --omp|--opencode [--global] [--dest DIR] [--debug]
 
-  --omp         Oh My Pi  (.omp/skills + .omp/agents)
+  --omp         Oh My Pi  (.omp/skills + .omp/agents + extensions)
   --opencode    OpenCode  (.opencode/skills + .opencode/agents)
   --global      user-wide dirs instead of the current project
   --dest DIR    override the harness root (implies not --global)
+  --debug       also install beadfinder-debug (OMP log + status advisor)
 
 Run from a clone of this pack, or via:
   bash /path/to/beadfinder/install.sh --omp
+  bash /path/to/beadfinder/install.sh --omp --debug
 EOF
   exit 1
 }
@@ -20,6 +22,7 @@ EOF
 HARNESS=""
 GLOBAL=0
 DEST_OVERRIDE=""
+DEBUG=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -31,6 +34,7 @@ while [[ $# -gt 0 ]]; do
       [[ -n "$DEST_OVERRIDE" ]] || usage
       shift
       ;;
+    --debug) DEBUG=1 ;;
     -h|--help) usage ;;
     *) echo "unknown arg: $1" >&2; usage ;;
   esac
@@ -85,15 +89,29 @@ copy_skill beadfinder "$PACK"
 copy_skill grill "$PACK/companions/grill"
 copy_skill research "$PACK/companions/research"
 copy_skill to-spec "$PACK/companions/to-spec"
+if [[ "$DEBUG" -eq 1 ]]; then
+  copy_skill beadfinder-debug "$PACK/companions/beadfinder-debug"
+  mkdir -p "$SKILLS/beadfinder/scripts"
+  cp "$PACK/scripts/debug-log.py" "$SKILLS/beadfinder/scripts/"
+fi
 
 if [[ "$HARNESS" == "omp" ]]; then
   cp "$PACK/adapters/ohmypi/agents/"*.md "$AGENTS/"
+  EXT="$ROOT/extensions/beadfinder"
+  rm -rf "$EXT"
+  mkdir -p "$EXT"
+  cp -R "$PACK/adapters/ohmypi/extensions/beadfinder/." "$EXT/"
+  echo "extensions in $EXT"
+  echo "if hooks do not fire, add that path to .omp/settings.json under \"extensions\""
 else
   cp "$PACK/adapters/opencode/agents/"*.md "$AGENTS/"
 fi
 
 echo "installed to $SKILLS"
 echo "agents in   $AGENTS"
+if [[ "$DEBUG" -eq 1 ]]; then
+  echo "debug skill on; log file will be <target-repo>/.omp/beadfinder-debug.log"
+fi
 echo
 echo "in the target repo: bd init  (if needed)"
 echo "append AGENTS.md.snippet to that repo's AGENTS.md"
