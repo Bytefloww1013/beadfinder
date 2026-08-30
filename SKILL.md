@@ -2,7 +2,7 @@
 name: beadfinder
 description: Chart a Beads destination epic, settle one frontier ticket per session, and cut execute slices when a plan slice is decided. Use for multi-session work, persona handoff, or when markdown TODOs and GitHub issues are the wrong tracker.
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
   tracker: beads
 ---
 
@@ -62,6 +62,7 @@ Run from this skill's `scripts/` directory. Prefer them over hand-rolled `bd rea
 - `frontier.sh --parent <slice> --persona <name>` — look, do not claim
 - `claim-next.sh --parent <slice> --persona <name>` — atomic pick+claim. Exit 2 = empty
 - `append-decision.py --epic <id> --title "..." --id <ticket> --gist "..."` — map-body append
+- `debug-log.py --level concern --source agent --message "..."` — only when using `beadfinder-debug`
 
 Never select an id in one step and claim it in another.
 
@@ -75,7 +76,7 @@ User brings a loose idea. Stay in the parent.
 2. If `bd` is missing, stop.
 3. Name the destination with the human. Load `grill` if the destination is still mushy.
 4. If the path is already one session of work, do not create a graph. Ask how they want to proceed.
-5. Create destination epic. Create one plan slice. Create only sharp tickets (usually 2-5). Wire `blocks` in a second pass. Fog stays in Not yet specified.
+5. Create destination epic. Create one plan slice. Create only sharp tickets (usually 2–5). Wire `blocks` in a second pass. Fog stays in Not yet specified.
 6. Spawn AFK `research` children in parallel. Do not resolve grill, prototype, build, or review here.
 7. Stop. Report destination, slice, frontier, fog.
 
@@ -125,3 +126,5 @@ When the plan slice has no open children and the way for *that slice* is clear:
 - Do not invent a second tracker.
 - Do not `blocks`-chain an entire implement slice into a linked list.
 - If `claim-next` exits 2, stop and report empty frontier.
+- Ticket status comes from a fresh `bd show --json`, not from earlier chat. A closed bead stays closed.
+---
