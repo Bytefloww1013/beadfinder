@@ -79,6 +79,8 @@ copy_skill() {
   if [[ -d "$src/scripts" ]]; then
     cp -R "$src/scripts" "$dest/"
     rm -rf "$dest/scripts/__pycache__"
+    # session-boot.sh calls frontier.sh by path; 100644 copies fail with Permission denied
+    find "$dest/scripts" -type f -name '*.sh' -exec chmod a+x {} + 2>/dev/null || true
   fi
   if [[ -d "$src/references" ]]; then
     cp -R "$src/references" "$dest/"

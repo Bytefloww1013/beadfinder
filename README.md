@@ -1,6 +1,6 @@
 # Beadfinder
 
-v0.3.0 — a Beads-native wayfinding pack for multi-session agent work.
+v0.3.1 — a Beads-native wayfinding pack for multi-session agent work.
 
 Charts a destination epic, settles one frontier ticket per session, and cuts an execute slice when a plan slice is decided. Personas (`wayfinder`, `architect`, `implementer`, `reviewer`, `product`) hand off through `bd ready` and atomic `--claim`.
 

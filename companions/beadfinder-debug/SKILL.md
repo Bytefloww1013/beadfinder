@@ -2,7 +2,7 @@
 name: beadfinder-debug
 description: Same orchestrator as beadfinder, plus advisor logging to .omp/beadfinder-debug.log. Use when a session is mis-reading bead status, skipping claims, or you need a trail of hook blocks and agent concerns.
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
   tracker: beads
   debug: true
 ---
@@ -27,6 +27,10 @@ python3 scripts/debug-log.py --level warning --source agent --message "claimed b
 
 Levels: `error` `warning` `concern` `info`.
 Sources: `agent` (you) `advisor` (hook / injected snapshot) `hook`.
+
+Hook info lines (`tool_call`, `turn_end`) stay off unless `BEADFINDER_DEBUG=verbose`. Always log mismatches.
+
+Tracker dir is `.beads`. Do not glob `beads/` — that path is not the Beads database.
 
 Do this when:
 
