@@ -1,8 +1,8 @@
 ---
-name: research
+name: beadfinder-research
 description: Resolve an AFK research ticket by reading the repo, docs, or APIs and returning a fact a decision is waiting on. Use when beadfinder or architect spawns a research child.
 metadata:
-  version: "0.2.0"
+  version: "0.4.0"
 ---
 
 # Research
