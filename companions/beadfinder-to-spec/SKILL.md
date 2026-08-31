@@ -9,9 +9,11 @@ metadata:
 
 Reads all closed decision beads, dependencies, and memory records associated with a Map Epic and compiles them into a structured, unified `SPEC.md` document.
 
+Runs in the wayfinder parent session (the handoff step). Do not spawn workers here; the implement slice you hand off is worked by spawned `implementer`/`reviewer` subagents.
+
 ## Core Rules
 
-1. **Zero Open Planning Beads**: Ensure `bd ready --label phase:plan` returns empty before compiling the spec.
+1. **Zero Open Planning Beads**: Ensure `bd ready --label phase:plan --json` returns `[]` and `bd list --parent <map-epic-id> --status open,in_progress --json` returns `[]` before compiling the spec.
 2. **Contract Completeness**: The generated `SPEC.md` must include concrete types, interface schemas, state transitions, and test seams.
 3. **Self-Contained Artifact**: Downstream builder agents must be able to implement tickets using only `SPEC.md` and the ticket description, without reading conversational history.
 
@@ -21,8 +23,12 @@ Reads all closed decision beads, dependencies, and memory records associated wit
 
 ### 1. Collect Graph Data & Memories
 ```bash
-# Query all closed beads under the map epic
-bd query "SELECT id, title, description, close_reason FROM issues WHERE parent_id = '<map-epic-id>' AND status = 'closed'"
+# Gate: nothing open under the map epic
+bd ready --label phase:plan --json
+bd list --parent <map-epic-id> --status open,in_progress --json
+
+# All closed beads under the map epic (bd query is a filter language, not SQL)
+bd list --parent <map-epic-id> --status closed --json
 bd prime
 ```
 

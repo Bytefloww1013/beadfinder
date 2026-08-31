@@ -26,6 +26,7 @@ Instead of a single ticket `"Build User Avatar Upload"`, create 6 linked micro-t
    - *Scope*: Full flow test from HTTP POST request to user record update verification.
 
 ## Dependency Chaining Command
+Chain `blocks` only where the next task cannot start first. Independent tasks stay parallel — do not serialize the whole slice into a linked list:
 ```bash
 bd dep add bd-xxx.2 bd-xxx.1 --type blocks
 bd dep add bd-xxx.3 bd-xxx.2 --type blocks
@@ -33,4 +34,6 @@ bd dep add bd-xxx.4 bd-xxx.3 --type blocks
 bd dep add bd-xxx.5 bd-xxx.4 --type blocks
 bd dep add bd-xxx.6 bd-xxx.5 --type blocks
 ```
+
+Every build bead carries the `implementation` persona label (plus one `review` ticket per epic) so `claim-next.sh` can route work to `implementer`/`reviewer` subagents.
 

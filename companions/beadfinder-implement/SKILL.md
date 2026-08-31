@@ -18,35 +18,36 @@ Consumes granular implementation tasks from the Beads graph one at a time, enfor
    - Implement the minimum code needed to pass the test.
    - Run typechecking and the full module test suite.
 4. **Close & Unlock**: Closing the bead automatically unblocks the next micro-ticket in the DAG.
+5. **Spawned Blocking Worker**: You run as a blocking subagent spawned by wayfinder with the ticket id. File discovered work with `--deps discovered-from:<current-id>`, labelled `phase:implement`. Never close the review ticket. If you hit a design hole, add `needs-design` and stop.
 
 ---
 
 ## Execution Loop
 
-### 1. Discover the Single Ready Task
+### 1. Boot & Atomically Claim the Single Ready Task
+Scripts live in the installed `beadfinder` skill's `scripts/` directory. `claim-next.sh` picks and claims in one transaction; exit 2 = empty frontier, stop and report:
 ```bash
-TASK_ID=$(bd ready --label phase:implement --json | jq -r '.[0].id')
+scripts/session-boot.sh --parent <impl-epic-id> --persona implementer
+CLAIM_JSON=$(scripts/claim-next.sh --parent <impl-epic-id> --persona implementer)
+TASK_ID=$(echo "$CLAIM_JSON" | jq -r '.[0].id')
 ```
+Tickets carry the `implementation` persona label, which is what the scripts filter on.
 
-### 2. Claim the Task
-```bash
-bd update $TASK_ID --claim
-```
-
-### 3. Inspect Task & Load Project Context
+### 2. Inspect Task & Load Project Context
 ```bash
 bd show $TASK_ID
 bd prime
 ```
 
-### 4. Implement via TDD
+### 3. Implement via TDD
 1. Create or update the test file specified in the bead.
 2. Execute the verification test command and confirm failure.
 3. Implement the feature logic in the target files.
 4. Re-run the verification command and confirm it passes.
 5. Run the repository typechecker and linter.
 
-### 5. Close Task & Hand Off
+### 4. Close Task & Hand Off
 ```bash
 bd close $TASK_ID "Completed: Implemented slice according to contract. All tests passing."
 ```
+Give the close reason as a one-line gist: the wayfinder parent appends it to the implement epic's "Decisions so far" via `append-decision.py` after you return.

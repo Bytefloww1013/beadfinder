@@ -1,6 +1,6 @@
 ---
 name: beadfinder-grill
-description: Socratic trade-off interrogation and architectural grilling engine. Resolves wayfinder:grilling decision beads by evaluating concrete options, surfacing edge cases, and locking decisions into Beads memory. Trigger with /beadfinder-grill or when working a grilling bead.
+description: Socratic trade-off interrogation and architectural grilling engine. Resolves beadfinder:grill decision beads by evaluating concrete options, surfacing edge cases, and locking decisions into Beads memory. Trigger with /beadfinder-grill or when working a grilling bead.
 metadata:
   version: "0.4.0"
 ---
@@ -18,6 +18,7 @@ Performs deep Socratic trade-off interrogation on an active decision bead. It fo
    - **Cons**: Complexity, operational cost, breaking changes.
    - **Failure Modes**: What happens when this option encounters extreme load or network partitions?
 4. **Lock Invariant in Memory**: When the user picks a direction, capture the decision and store it using `bd remember`.
+5. **Runs in the Parent**: This skill executes in the wayfinder session. Never spawn it into a background subagent — a child will answer for the human. Claim the bead by named id (`bd update <id> --claim`); never `claim-next.sh` on HITL queues.
 
 ---
 
@@ -73,6 +74,11 @@ Once alignment is reached:
 3. Check for emergent questions. If the choice creates new dependencies, immediately create child beads:
    ```bash
    bd create "Decision: [Follow-up question]" --parent <map-epic-id> \
-     --label phase:plan --label wayfinder:grilling \
+     --label phase:plan --label beadfinder:grill --label product --label hitl \
      --deps discovered-from:<bead-id>
+   ```
+4. Append the decision to the map epic's "Decisions so far" bus. Scripts live in the installed `beadfinder` skill's `scripts/` directory:
+   ```bash
+   python3 <beadfinder-skill>/scripts/append-decision.py --epic <map-epic-id> \
+     --title "[Bead Title]" --id <bead-id> --gist "[Chosen option, one line]"
    ```

@@ -9,6 +9,8 @@ metadata:
 
 AFK. No human required. One ticket.
 
+Spawn context: research is the only non-blocking role. The wayfinder parent spawns you in parallel with other research children and keeps working HITL tickets in its own session. Claim by named id — research beads carry no `claim-next.sh` persona label.
+
 1. Claim `bd update <id> --claim --json` if the parent did not already claim it.
 2. Read outside or inside the repo until the Question is answered well enough to unblock the next ticket.
 3. Comment the evidence (paths, URLs, short quotes). Do not paste a novel.

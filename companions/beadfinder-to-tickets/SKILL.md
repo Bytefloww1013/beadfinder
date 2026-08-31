@@ -44,9 +44,10 @@ When decomposing an architectural module, generate separate beads for each discr
 ## Ticket Generation Procedure
 
 ### 1. Create the Implementation Epic
+The `beadfinder:slice` label is what `session-boot.sh` lists on later sessions:
 ```bash
 bd create "Implement: <Feature Name>" -t epic -p 1 \
-  --label phase:implement \
+  --label beadfinder:slice --label phase:implement \
   -d "Implementation graph derived from Plan Epic <plan-epic-id> and SPEC.md."
 ```
 
@@ -55,7 +56,7 @@ For each atomic slice, create a bead with the following fields:
 
 ```bash
 bd create "<Action Verb> <Precise Scope>" -t task -p 1 \
-  --parent <impl-epic-id> --label phase:implement \
+  --parent <impl-epic-id> --label phase:implement --label implementation \
   -d "Target Files:
 - <file-path-1>
 - <file-path-2>
@@ -74,16 +75,29 @@ Acceptance Criteria:
 - [ ] Typecheck passes without errors"
 ```
 
-### 3. Chain Sequential Blockers
-Chain the tasks into a strict dependency graph using `bd dep add`:
+The `implementation` persona label is what `claim-next.sh --persona implementer` filters on; every build bead MUST carry it.
+
+### 3. Add the Review Ticket
+One `review` ticket per epic so the `reviewer` persona has work. It blocks on the builds that must exist before review is meaningful (usually all of them):
 ```bash
-bd dep add <step-2-id> <step-1-id> --type blocks
-bd dep add <step-3-id> <step-2-id> --type blocks
-bd dep add <step-4-id> <step-3-id> --type blocks
-bd dep add <step-5-id> <step-4-id> --type blocks
-bd dep add <step-6-id> <step-5-id> --type blocks
-bd dep add <step-7-id> <step-6-id> --type blocks
+bd create "Review: <Feature Name>" -t task -p 1 \
+  --parent <impl-epic-id> --label phase:implement --label review \
+  -d "Review the closed builds against the contracts in SPEC.md. File blockers as new issues that blocks this review, labelled implementation. Do not edit product code."
+bd dep add <review-id> <step-1-id> --type blocks
+bd dep add <review-id> <step-2-id> --type blocks
 ```
 
-### 4. Verify the Frontier
-Run `bd ready --label phase:implement --json` to verify that **only the very first task (Step 1)** is unlocked on the frontier. As builder agents close each task, the next task in the chain will automatically unlock.
+### 4. Chain Blockers
+Chain `blocks` **only where B cannot start before A** (e.g. schema → types that use it). Independent tasks stay parallel — do not serialize the whole slice into a linked list:
+```bash
+bd dep add <step-2-id> <step-1-id> --type blocks   # only if step 2 cannot start first
+bd dep add <step-3-id> <step-2-id> --type blocks   # only if step 3 cannot start first
+```
+
+### 5. Verify the Frontier
+Scripts live in the installed `beadfinder` skill's `scripts/` directory:
+```bash
+scripts/frontier.sh --parent <impl-epic-id> --persona implementer   # step 1 (and any parallel starts) visible
+scripts/frontier.sh --parent <impl-epic-id> --persona reviewer      # review absent while still blocked
+```
+As builder agents close each task, blocked work unlocks automatically; spawned `implementer`/`reviewer` subagents claim it atomically with `claim-next.sh`.
