@@ -61,22 +61,22 @@ bd prime || bd init --quiet
 ### 3. Seed Decision Beads Across the 10 Pillars
 Create child decision beads linked to the root map epic. State each bead title as a clear question or choice:
 
-- **`wayfinder:grilling` (HITL)**: For architectural trade-offs requiring user alignment.
+- **`beadfinder:grilling` (HITL)**: For architectural trade-offs requiring user alignment.
   ```bash
   bd create "Decision: <Question to Answer>" -t task -p 1 \
-    --parent <map-epic-id> --label phase:plan --label wayfinder:grilling \
+    --parent <map-epic-id> --label phase:plan --label beadfinder:grill \
     -d "Pillar: <Pillar Name>\nContext: <Why this decision matters>\nOptions:\n1. <Option A>\n2. <Option B>\nTrade-offs: <Key trade-off summary>"
   ```
-- **`wayfinder:research` (AFK)**: For empirical codebase or library investigation.
+- **`beadfinder:research` (AFK)**: For empirical codebase or library investigation.
   ```bash
   bd create "Research: <Technical Uncertainty>" -t task -p 2 \
-    --parent <map-epic-id> --label phase:plan --label wayfinder:research \
+    --parent <map-epic-id> --label phase:plan --label beadfinder:research \
     -d "Objective: <Investigation goal>\nPointers: <Relevant repo files or external docs>"
   ```
-- **`wayfinder:prototype` (HITL)**: For throwaway spikes evaluating ergonomics or UI.
+- **`beadfinder:prototype` (HITL)**: For throwaway spikes evaluating ergonomics or UI.
   ```bash
   bd create "Spike: <Behavior or UI Prototype>" -t task -p 2 \
-    --parent <map-epic-id> --label phase:plan --label wayfinder:prototype \
+    --parent <map-epic-id> --label phase:plan --label beadfinder:prototype \
     -d "Spike Goal: <What behavior to test>\nArtifact: <Disposable script or mockup>"
   ```
 
@@ -96,9 +96,9 @@ In each session:
    bd update <bead-id> --claim
    ```
 3. **Resolve Based on Type**:
-   - For `wayfinder:grilling`: Delegate to `/beadfinder-grill` or run focused trade-off dialogue.
-   - For `wayfinder:research`: Inspect repo files, test dependencies, and formulate findings.
-   - For `wayfinder:prototype`: Write a self-contained throwaway spike script to demonstrate behavior.
+   - For `beadfinder:grill`: Delegate to `/beadfinder-grill` or run focused trade-off dialogue.
+   - For `beadfinder:research`: Inspect repo files, test dependencies, and formulate findings.
+   - For `beadfinder:prototype`: Write a self-contained throwaway spike script to demonstrate behavior.
 4. **Fog Excavation (The Fog Sieve)**:
    If resolving this bead exposes new sub-decisions, create new beads immediately:
    ```bash
@@ -124,5 +124,5 @@ When `bd ready --label phase:plan` returns empty and all decision beads under th
 
 ## Gotchas
 - **Do Not Answer Grilling Questions Autonomously**: HITL beads require user collaboration; never invent user preferences.
-- **Do Not Implement Code in Tasks**: `wayfinder:task` is strictly for unblocking research (e.g. provisioning keys), never early feature code.
+- **Do Not Implement Code in Tasks**: `beadfinder:task` is strictly for unblocking research (e.g. provisioning keys), never early feature code.
 - **Never Skip Pillars**: Always check if authentication, error handling, and migrations apply before declaring planning complete.

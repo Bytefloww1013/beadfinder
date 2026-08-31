@@ -1,29 +1,78 @@
 ---
 name: grill
-description: Run a HITL decision dialogue. Use when a beadfinder grill ticket is claimed in the parent session, or for a one-off tradeoff with no map. Never answer for the human.
+description: Socratic trade-off interrogation and architectural grilling engine. Resolves wayfinder:grilling decision beads by evaluating concrete options, surfacing edge cases, and locking decisions into Beads memory. Trigger with /beadfinder-grill or when working a grilling bead.
 metadata:
-  version: "0.2.0"
+  version: "0.4.0"
 ---
 
-# Grill
+# Beadfinder: Socratic Decision Grilling
 
-You are in conversation with the human. Your job is to make one decision crisp enough to close a ticket.
+Performs deep Socratic trade-off interrogation on an active decision bead. It forces rigorous evaluation of options, identifies edge cases, and records the final architectural choice.
 
-## Do
+## Core Rules
 
-- Ask the smallest next question that splits the space.
-- Offer two or three concrete options when the human is staring at fog.
-- Restate the locked answer in one sentence before you write it down.
-- If this ticket sits on a Beads graph, claim first (`bd update <id> --claim`), then close with that sentence as `--reason`.
-- Call `append-decision.py` only if the parent told you the epic id. Otherwise leave the index to wayfinder.
+1. **One Decision at a Time**: Focus exclusively on the claimed bead. Do not derail into unrelated architectural topics.
+2. **Present Structured Alternatives**: Never ask open-ended questions like *"How should we do this?"* Always present 2–3 concrete options with explicit trade-offs.
+3. **Mandatory Trade-off Structure**: Every option must evaluate:
+   - **Pros**: Speed, simplicity, type safety, scalability.
+   - **Cons**: Complexity, operational cost, breaking changes.
+   - **Failure Modes**: What happens when this option encounters extreme load or network partitions?
+4. **Lock Invariant in Memory**: When the user picks a direction, capture the decision and store it using `bd remember`.
 
-## Do not
+---
 
-- Answer your own question.
-- Close a ticket on a guess.
-- Implement product code.
-- Chart a new destination. That is beadfinder.
+## Grilling Workflow
 
-## Close format
+### 1. Read Bead Context & Active Memory
+```bash
+bd show <bead-id>
+bd prime
+```
 
-Reason and comment are the same gist: the decision, not the debate.
+### 2. Format the Grilling Interrogation
+Present the decision to the human using the following structure:
+
+```markdown
+### 🎯 Decision: [Bead Title]
+**Pillar**: [e.g., Concurrency & State Mutation]
+**Core Uncertainty**: [1-2 sentences on what must be locked]
+
+---
+
+#### Option A: [Name of Option A] (Recommended)
+* **Mechanics**: [How it works]
+* **Pros**: [Key benefits]
+* **Cons / Costs**: [Trade-offs or dependencies]
+* **Failure Behavior**: [How it handles errors/timeouts]
+
+#### Option B: [Name of Option B]
+* **Mechanics**: [How it works]
+* **Pros**: [Key benefits]
+* **Cons / Costs**: [Trade-offs]
+* **Failure Behavior**: [How it handles errors/timeouts]
+
+---
+
+### ❓ Edge Case & Invariant Check
+1. [Specific edge case question 1]
+2. [Specific edge case question 2]
+
+Which option aligns best with your goals, or should we refine the parameters?
+```
+
+### 3. Record Resolution & Spawn Fog
+Once alignment is reached:
+1. Close the bead:
+   ```bash
+   bd close <bead-id> "Resolution: [Option chosen and brief justification]"
+   ```
+2. Store durable architectural memory:
+   ```bash
+   bd remember "Decision: [Module/Pillar] uses [Chosen Option]. Rule: [Invariant]."
+   ```
+3. Check for emergent questions. If the choice creates new dependencies, immediately create child beads:
+   ```bash
+   bd create "Decision: [Follow-up question]" --parent <map-epic-id> \
+     --label phase:plan --label wayfinder:grilling \
+     --deps discovered-from:<bead-id>
+   ```
