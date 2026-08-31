@@ -1,131 +1,128 @@
 ---
 name: beadfinder
-description: Chart a Beads destination epic, settle one frontier ticket per session, and cut execute slices when a plan slice is decided. Use for multi-session work, persona handoff, or when markdown TODOs and GitHub issues are the wrong tracker.
+description: Multi-session architectural wayfinding, decision charting, and fog-of-war planning powered by Beads (bd). Traverses the 10 Architectural Pillars to chart exhaustive decision DAGs, resolves fog across sessions, and orchestrates downstream spec and ticket generation. Use when planning large, complex, or ambiguous software projects, or when the user invokes /beadfinder or /wayfinder.
 metadata:
-  version: "0.3.2"
+  version: "0.4.0"
   tracker: beads
 ---
 
-# Beadfinder
+# Beadfinder: Deep Architectural Wayfinding
 
-Orchestrator only. Chart the graph, pick the next ticket, spawn the matching worker, record the gist. Do not become the grill script, the researcher, or the implementer.
+Beadfinder breaks down complex software projects whose destination is known but whose technical route is foggy. It plans rather than builds: charting decisions into a dependency graph of Beads issues, resolving them across focused agent sessions, and handing off an exhaustive blueprint for implementation.
 
-Companion skills (load on demand): `grill`, `research`, `to-spec`.
-Persona agents (spawn, do not re-prompt here): `architect`, `implementer`, `reviewer`, `product`.
+## Core Rules
 
-Beads is the only tracker. `--json` on every parsed `bd` call.
+1. **Plan, Do Not Build**: Every planning bead represents an architectural decision, technical uncertainty, or spike—never a slice of production code.
+2. **Exhaustive Decision Mapping**: Actively probe the **10 Architectural Pillars**. Never artificially restrict the initial chart to 3–5 items; map every non-trivial decision.
+3. **Strict Phase Isolation**:
+   - Planning beads: `--label phase:plan`
+   - Implementation beads: `--label phase:implement`
+4. **Beads Native Frontier**: Always use `bd ready --label phase:plan --json` to discover actionable work. Never parse status strings manually.
+5. **Durable Knowledge Bus**: Record lasting invariants and locked choices via `bd remember "Decision: <takeaway>"`.
+6. **One Decision Bead Per Session, In Plan Phase**: In the Plan Pase interactive mode, claim one unblocked bead, resolve it through structured dialogue, research, or spikes, record the resolution, and stop.
+7. **One or More Decisions per Session, In Implement Phase**: In the Implement Phase interactive mode, claim one or more unblocked beads, implement them, and close them with a concise rationale.
 
-## Graph
-
-```
-Destination epic     label beadfinder:destination     stays open
-  Plan slice epic    label beadfinder:slice, phase:wayfind
-    decision tickets
-  Implement slice    label beadfinder:slice, phase:execute
-    build + review tickets     related to the plan slice
-```
-
-Create an implement slice only after that plan slice has no open children. Other plan slices may stay open. Do not dump every child into the destination description.
-
-Ticket body:
-
-```markdown
-## Question
-
-<one session of work>
-
-## Acceptance
-
-<what close requires>
-```
-
-Slice/destination body keeps Destination, Notes, Decisions so far, Not yet specified, Out of scope. Open tickets are not listed there.
-
-## Labels
-
-Exactly one of each where it applies.
-
-- Destination: `beadfinder:destination`
-- Slice: `beadfinder:slice`
-- Phase: `phase:wayfind` or `phase:execute`
-- Type: `beadfinder:grill` `beadfinder:research` `beadfinder:prototype` `beadfinder:task` `beadfinder:build` `beadfinder:review`
-- Persona: `architecture` `implementation` `review` `product` `wayfinder`
-- Mode: `hitl` or `afk`
-
-Assignees: `wayfinder` `architect` `implementer` `reviewer` `product`.
-
-## Scripts
-
-Run from this skill's `scripts/` directory. Prefer them over hand-rolled `bd ready | jq`.
-
-- `session-boot.sh [--persona name] [--parent slice-id]` — start of every parent session
-- `frontier.sh --parent <slice> --persona <name>` — look, do not claim
-- `claim-next.sh --parent <slice> --persona <name>` — atomic pick+claim. Exit 2 = empty
-- `append-decision.py --epic <id> --title "..." --id <ticket> --gist "..."` — map-body append
-- `debug-log.py --level concern --source agent --message "..."` — only when using `beadfinder-debug`
-
-Never select an id in one step and claim it in another.
-
-## Session types
-
-### Chart
-
-User brings a loose idea. Stay in the parent.
-
-1. `session-boot.sh`
-2. If `bd` is missing, stop.
-3. Name the destination with the human. Load `grill` if the destination is still mushy.
-4. If the path is already one session of work, do not create a graph. Ask how they want to proceed.
-5. Create destination epic. Create one plan slice. Create only sharp tickets (usually 2–5). Wire `blocks` in a second pass. Fog stays in Not yet specified.
-6. Spawn AFK `research` children in parallel. Do not resolve grill, prototype, build, or review here.
-7. Stop. Report destination, slice, frontier, fog.
-
-### Settle
-
-Parent session. One non-research ticket.
-
-1. `session-boot.sh --parent <plan-slice> --persona wayfinder`
-2. HITL (`beadfinder:grill`, prototype reaction, product call) — keep in this session. Load `grill`. Claim the named ticket with `bd update <id> --claim`. Never `claim-next` without a type filter on HITL queues.
-3. AFK research already running — wait or spawn `research`.
-4. ADR / design — spawn blocking `architect` with ticket id, title, and the gists it must respect.
-5. On close: comment the answer, `bd close --reason "<gist>"`, `append-decision.py` on the plan slice, `bd remember` only for invariants that every later session needs.
-6. File newly sharp tickets. Graduate fog. Close mis-scoped tickets onto Out of scope.
-7. Stop.
-
-### Handoff (cut execute slice)
-
-When the plan slice has no open children and the way for *that slice* is clear:
-
-1. Load `to-spec`.
-2. Create implement slice epic (`phase:execute`, `beadfinder:slice`), `related` to the plan slice and the destination.
-3. Create few build tickets and one review ticket. `related` to the ADR. `blocks` only when B cannot start before A.
-4. Stop. Do not implement in the handoff session.
-
-### Execute
-
-1. `session-boot.sh --parent <impl-slice> --persona implementer` (or reviewer).
-2. Spawn **one** blocking worker with the ticket id and the ADR gist in the prompt.
-3. Implementer files discovered work with `discovered-from`. Reviewer files blockers that `blocks` the review. Reviewer does not edit product code.
-4. After the child returns, append-decision on the implement slice if a ticket closed. Stop.
-
-## Spawn rules
-
-- Parent primary is `wayfinder`.
-- Spawn `architect`, `implementer`, `reviewer`. Spawn `product` only for non-grill product tickets.
-- HITL stays in the parent. A background child will answer for the human.
-- Research children may run in parallel and need not block.
-- Everyone else blocks the parent.
-- Child prompt includes: ticket title, id, parent slice id, ADR/decision gists, "one ticket only", "claim before work".
-
-## Hard rules
-
-- Claim before work.
-- One non-research ticket per session.
-- Refer by title, wrap the id inside the name.
-- Do not restatedecisions on the epic. Gist + link.
-- Do not invent a second tracker.
-- Do not `blocks`-chain an entire implement slice into a linked list.
-- If `claim-next` exits 2, stop and report empty frontier.
-- Ticket status comes from a fresh `bd show --json`, not from earlier chat. A closed bead stays closed.
-- Tracker dir is `.beads`. Do not glob `beads/`.
 ---
+
+## The 10 Architectural Decision Pillars
+
+When charting a new system, feature, or major refactor, systematically generate decision beads across all 10 pillars:
+
+1. **Domain & Entity Modeling**: Entity relationships, field definitions, enum sets, state machines, and relational constraints.
+2. **Data Persistence & Lifecycle**: DB engine, schema indexing, transaction isolation levels, soft-delete vs hard-purge policies.
+3. **Interface & Contract Boundaries**: Protocol (REST, GraphQL, gRPC), schema validation (Zod, Pydantic, Protobuf), response wrappers.
+4. **Authentication, Authorization & RBAC**: Identity token format, session lifecycles, role-permission matrices, middleware placement.
+5. **Concurrency, Idempotency & Mutations**: Mutation deduplication keys, distributed locks, race condition mitigation.
+6. **Error Handling & Failure Topography**: Standard error schema, retry policies, backoff mechanisms, circuit breakers, fallback states.
+7. **External Integrations & Seams**: Third-party APIs, webhooks, mock harnesses, sandbox testing strategies.
+8. **Performance, Budgets & Caching**: Cache invalidation policies, latency thresholds, payload limits, pagination contracts.
+9. **Observability, Metrics & Telemetry**: Structured log attributes, Prometheus metrics, distributed trace spans, health endpoints.
+10. **State Migration & Seeding**: DB migration scripts, backward compatibility during rollout, mock data fixtures.
+
+---
+
+## Workflow
+
+### 1. Initialize & Prime Beads
+Verify that Beads is initialized and persistent memory is loaded:
+```bash
+bd prime || bd init --quiet
+```
+
+### 2. Chart the Root Map Epic
+1. **Agree on Destination**: Clarify the end-state goal with the human before creating tickets.
+2. **Create the Root Epic**:
+   ```bash
+   bd create "Wayfinder Map: <Destination Title>" -t epic -p 1 \
+     --label phase:plan \
+     -d "Destination: <Goal summary>\n\nOut of Scope:\n- <Excluded topics>\n\nNotes:\n- Architectural wayfinding in progress."
+   ```
+
+### 3. Seed Decision Beads Across the 10 Pillars
+Create child decision beads linked to the root map epic. State each bead title as a clear question or choice:
+
+- **`wayfinder:grilling` (HITL)**: For architectural trade-offs requiring user alignment.
+  ```bash
+  bd create "Decision: <Question to Answer>" -t task -p 1 \
+    --parent <map-epic-id> --label phase:plan --label wayfinder:grilling \
+    -d "Pillar: <Pillar Name>\nContext: <Why this decision matters>\nOptions:\n1. <Option A>\n2. <Option B>\nTrade-offs: <Key trade-off summary>"
+  ```
+- **`wayfinder:research` (AFK)**: For empirical codebase or library investigation.
+  ```bash
+  bd create "Research: <Technical Uncertainty>" -t task -p 2 \
+    --parent <map-epic-id> --label phase:plan --label wayfinder:research \
+    -d "Objective: <Investigation goal>\nPointers: <Relevant repo files or external docs>"
+  ```
+- **`wayfinder:prototype` (HITL)**: For throwaway spikes evaluating ergonomics or UI.
+  ```bash
+  bd create "Spike: <Behavior or UI Prototype>" -t task -p 2 \
+    --parent <map-epic-id> --label phase:plan --label wayfinder:prototype \
+    -d "Spike Goal: <What behavior to test>\nArtifact: <Disposable script or mockup>"
+  ```
+
+### 4. Establish Blockers & Dependencies
+```bash
+bd dep add <downstream-bead-id> <upstream-bead-id> --type blocks
+```
+
+### 5. Work the Frontier
+In each session:
+1. **Query Frontier**:
+   ```bash
+   bd ready --label phase:plan --json
+   ```
+2. **Claim the Bead**:
+   ```bash
+   bd update <bead-id> --claim
+   ```
+3. **Resolve Based on Type**:
+   - For `wayfinder:grilling`: Delegate to `/beadfinder-grill` or run focused trade-off dialogue.
+   - For `wayfinder:research`: Inspect repo files, test dependencies, and formulate findings.
+   - For `wayfinder:prototype`: Write a self-contained throwaway spike script to demonstrate behavior.
+4. **Fog Excavation (The Fog Sieve)**:
+   If resolving this bead exposes new sub-decisions, create new beads immediately:
+   ```bash
+   bd create "Decision: <New Emergent Question>" --parent <map-epic-id> \
+     --label phase:plan --label wayfinder:grilling \
+     --deps discovered-from:<current-bead-id>
+   ```
+5. **Close Bead & Store Memory**:
+   ```bash
+   bd close <bead-id> "Resolution: <Concise rationale and locked decision>"
+   bd remember "Decision [<Pillar>]: <Locked rule or invariant>"
+   ```
+### 6. Terminal Handoff
+When `bd ready --label phase:plan` returns empty and all decision beads under the map epic are closed:
+1. Run `/beadfinder-to-spec` to compile all closed decisions into `SPEC.md`.
+2. Run `/beadfinder-to-tickets` to generate the fine-grained implementation graph.
+3. Close the root map epic:
+   ```bash
+   bd close <map-epic-id> "All architectural decisions locked. Specification compiled."
+   ```
+
+---
+
+## Gotchas
+- **Do Not Answer Grilling Questions Autonomously**: HITL beads require user collaboration; never invent user preferences.
+- **Do Not Implement Code in Tasks**: `wayfinder:task` is strictly for unblocking research (e.g. provisioning keys), never early feature code.
+- **Never Skip Pillars**: Always check if authentication, error handling, and migrations apply before declaring planning complete.
