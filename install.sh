@@ -88,9 +88,12 @@ copy_skill() {
 }
 
 copy_skill beadfinder "$PACK"
-copy_skill grill "$PACK/companions/grill"
-copy_skill research "$PACK/companions/research"
-copy_skill to-spec "$PACK/companions/to-spec"
+copy_skill beadfinder-grill "$PACK/companions/beadfinder-grill"
+copy_skill beadfinder-implement "$PACK/companions/beadfinder-implement"
+copy_skill beadfinder-research "$PACK/companions/beadfinder-research"
+copy_skill beadfinder-to-spec "$PACK/companions/beadfinder-to-spec"
+copy_skill beadfinder-to-tickets "$PACK/companions/beadfinder-to-tickets"
+
 if [[ "$DEBUG" -eq 1 ]]; then
   copy_skill beadfinder-debug "$PACK/companions/beadfinder-debug"
   mkdir -p "$SKILLS/beadfinder/scripts"

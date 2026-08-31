@@ -1,6 +1,6 @@
 ---
 name: beadfinder-implement
-description: Deterministic implementation executor for Beads tasks. Claims and executes single unblocked tasks from bd ready --label phase:implement using strict TDD, static verification, and automated closeout. Trigger with /beadfinder-implement.
+description: Deterministic implementation executor for Beads tasks. Claims and executes single unblocked tasks from bd ready label phase:implement using strict TDD, static verification, and automated closeout. Trigger with /beadfinder-implement.
 metadata:
   version: "0.4.0"
 ---
