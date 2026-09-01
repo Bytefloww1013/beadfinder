@@ -4,11 +4,12 @@ This is the working plan for agents changing the hook pack. Humans who only need
 
 ## Scope lock
 
-- OMP first. Do not add an OpenCode plugin in this pass.
-- Policy lives in `adapters/ohmypi/extensions/beadfinder/`.
-- Debug logging is gated. Default `--omp` install must not fill `.omp/beadfinder-debug.log`.
+- Policy for OMP lives in `adapters/ohmypi/extensions/beadfinder/`.
+- Policy for OpenCode lives in `adapters/opencode/plugins/` (`beadfinder.ts` + `beadfinder/lib`).
+- Debug logging is gated. Default install must not fill the debug log.
 - Do not import claude-protocol’s “user closes after merge” / worktree rules.
 - HITL stays label + ask in the parent. Hooks only stop it leaving the parent.
+- Keep the two packs behavior-compatible. Do not add an OpenCode-only gate without an OMP twin, or vice versa.
 
 ## Layout
 
@@ -24,14 +25,20 @@ adapters/ohmypi/extensions/beadfinder/
     paths.ts        protected / product / tracker
     bd.ts           bd exec + issue helpers
     log.ts          JSONL writer, debugEnabled()
+adapters/opencode/plugins/
+  beadfinder.ts     OpenCode plugin export (auto-loaded)
+  beadfinder/lib/   same jobs as OMP lib; OpenCode events + apply_patch/task
+adapters/opencode/commands/beadfinder.md
 scripts/debug-log.py
 companions/beadfinder-debug/
-install.sh          --omp copies extension; --debug copies debug skill
+install.sh          --omp copies extension; --opencode copies plugin + commands; --debug copies debug skill
 docs/HOOKS.md
 docs/HOOKS-IMPLEMENTATION.md
 ```
 
-Install target: `$ROOT/extensions/beadfinder/` where `$ROOT` is `.omp` or `~/.omp/agent`.
+OMP install target: `$ROOT/extensions/beadfinder/` where `$ROOT` is `.omp` or `~/.omp/agent`.
+
+OpenCode install target: `$ROOT/plugins/beadfinder.ts` + `$ROOT/plugins/beadfinder/lib/` where `$ROOT` is `.opencode` or `~/.config/opencode`. OpenCode's glob is `{plugin,plugins}/*.{ts,js}` — do not flatten `lib/*.ts` next to the entry.
 
 ## Runtime facts (do not fight these)
 
@@ -111,24 +118,24 @@ Never store secrets. Safe to delete; hooks rebuild it.
 
 ### debug
 
-- `debugEnabled(cwd)` = `BEADFINDER_DEBUG` or `skills/beadfinder-debug/SKILL.md` present (project or `~/.omp/agent`).
+- `debugEnabled(cwd)` = `BEADFINDER_DEBUG` or `skills/beadfinder-debug/SKILL.md` present (project `.omp` / `.opencode`, or `~/.omp/agent` / `~/.config/opencode`).
 - `lib/log.ts` is the only writer policy hooks should use.
 - `scripts/debug-log.py` is the agent-facing writer. Keep flags stable: `--level --source --hook --message --details`.
 - Do not log file contents or `.env` values.
 
 ## Order of work if something is broken
 
-1. Confirm the extension loaded (block a dummy `.env` read). If it did not, settings.json `extensions`.
-2. Confirm `bd` is on PATH inside `pi.exec`, not only the user shell.
-3. Confirm persona was recorded (`state.json`).
-4. Then touch the specific hook function. Do not rewrite the factory.
+1. Confirm the pack loaded: dummy `.env` read should block. OMP: settings.json `extensions` if silent. OpenCode: file exists at `.opencode/plugins/beadfinder.ts` and OpenCode was restarted.
+2. Confirm `bd` is on PATH inside the harness process, not only the user shell.
+3. Confirm persona was recorded (`state.json`). OpenCode also infers it from the agent name.
+4. Then touch the specific hook function. Do not rewrite the factory / plugin export.
 
 ## What not to add yet
 
-- OpenCode `tool.execute.before` ports
 - Claude-protocol worktree / PR-merged close rules
 - Auto-picking which ready ticket to take
 - Formulas or Beads gates for HITL
+- Yielding on OpenCode `session.idle` (it is turn-end, not shutdown)
 
 ## Verify before claiming “hooks work”
 
@@ -146,14 +153,32 @@ Smoke:
 4. Close a ticket, start a new turn without mentioning it: injected snapshot must not list it as open.
 5. With `--debug`, `.omp/beadfinder-debug.log` gets a JSON line on that close mismatch.
 
-## Later (OpenCode)
+## OpenCode runtime facts
 
-Port only the hooks we still want after live OMP use. Map:
+- Plugin signature: `export const BeadfinderPlugin = async (ctx) => hooks`. `ctx` is `{ client, directory, worktree, $ }`.
+- Block a tool by **throwing** `new Error("[beadfinder:<hook>] …")` from `tool.execute.before`. There is no `{ block: true }` return.
+- Inject advisor text with `client.session.prompt({ path: { id }, body: { noReply: true, parts: [{ type: "text", text, synthetic: true }] } })`. Skip `chat.message` handling when the parts are our snapshot (prefix `Live Beads snapshot`).
+- `bd` is spawned with `child_process.spawn("bd", args, { cwd: directory })`. Always pass `--json` when parsing.
+- Persona comes from the OpenCode agent name (`chat.message` / `input.agent`) plus `session-boot.sh --persona`. Hidden agents `title` / `summary` / `compaction` are ignored.
+- State is `.opencode/beadfinder/state.json`, keyed by session id.
+- `apply_patch` paths are parsed from `*** Add File:` / `*** Update File:` / `*** Delete File:` / `*** Move to:` lines in `args.patchText`.
+- Spawn tool is `task` (`prompt`, `description`, `subagent_type`).
+- Compact hook is `experimental.session.compacting` (`output.context.push(...)`). Do not use `session.compacted` — that is after the summary exists.
+- Yield only on `session.deleted`. `session.idle` is every turn.
+- Tests: `bun test adapters/opencode/plugins/beadfinder`.
 
-| Job | OMP | OpenCode |
-|---|---|---|
-| pre | `tool_call` | `tool.execute.before` |
-| post | `tool_result` | `tool.execute.after` |
-| boot | `session_start` | `session.created` |
-| compact | `session.compacting` | `session.compacted` |
-| stop | `agent_end` / `session_shutdown` | `session.idle` / `session.deleted` |
+## Verify before claiming “OpenCode hooks work”
+
+From a throwaway project with `bd` installed:
+
+```bash
+bash /path/to/beadfinder/install.sh --opencode --debug
+# restart opencode so plugins load
+```
+
+Smoke:
+1. `read` on `.env` is blocked (`[beadfinder:env-protection]`).
+2. Reviewer `write` to `src/foo.ts` is blocked (Tab to reviewer, or spawn it).
+3. `bd close <destination>` is blocked.
+4. Close a ticket, send a new message without mentioning it: injected snapshot must not list it as open.
+5. With `--debug`, `.opencode/beadfinder-debug.log` gets a JSON line on that close mismatch.

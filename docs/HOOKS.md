@@ -1,15 +1,16 @@
 # Beadfinder hooks — human reference
 
-v0.3.2. OMP only. OpenCode ports wait until we know which of these actually earn their keep.
+v0.4.0. Oh My Pi and OpenCode.
 
-These hooks sit on Oh My Pi events. The model cannot talk them out of a block. Skills still explain the rules; hooks refuse the move.
+These hooks sit on harness events. The model cannot talk them out of a block. Skills still explain the rules; hooks refuse the move.
 
 Kill switch: `BEADFINDER_HOOKS=off`.
 
 Debug log (only with `beadfinder-debug` or `BEADFINDER_DEBUG=1`):
 
 ```
-<target-repo>/.omp/beadfinder-debug.log
+<target-repo>/.omp/beadfinder-debug.log         # Oh My Pi
+<target-repo>/.opencode/beadfinder-debug.log    # OpenCode
 ```
 
 Default lines are `error` / `warning` / `concern`. `info` (every tool_call / turn_end) needs `BEADFINDER_DEBUG=verbose`.
@@ -25,13 +26,17 @@ Install:
 ```bash
 bash install.sh --omp
 bash install.sh --omp --debug
+bash install.sh --opencode
+bash install.sh --opencode --debug
 ```
 
-Hooks land in `.omp/extensions/beadfinder/` (or `~/.omp/agent/extensions/beadfinder` with `--global`). If a given OMP build discovers `hooks/pre` but never runs it, list the extension path in `.omp/settings.json`:
+OMP hooks land in `.omp/extensions/beadfinder/` (or `~/.omp/agent/extensions/beadfinder` with `--global`). If a given OMP build discovers `hooks/pre` but never runs it, list the extension path in `.omp/settings.json`:
 
 ```json
 { "extensions": [".omp/extensions/beadfinder"] }
 ```
+
+OpenCode hooks land in `.opencode/plugins/beadfinder.ts` (or `~/.config/opencode/plugins` with `--global`). OpenCode auto-loads `{plugin,plugins}/*.{ts,js}` at startup — restart OpenCode after install. No `opencode.json` `plugin` entry is required.
 
 ---
 
@@ -208,7 +213,7 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 
 ## yield-on-stop
 
-**When:** agent end / session shutdown.
+**When:** OMP `agent_end` / `session_shutdown`. OpenCode `session.deleted` (not `session.idle` — that fires every turn).
 
 **Does:** if hook state has a claimed ticket and mode is `afk` (or `BEADFINDER_YIELD_ON_STOP=1`), comments the bead and unassigns it.
 
@@ -218,11 +223,30 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 
 ## compact-preserve
 
-**When:** OMP is about to compact the session.
+**When:** OMP is about to compact the session (`session.compacting`). OpenCode uses `experimental.session.compacting` (before the summary is written).
 
 **Does:** stuffs claimed id, slice id, persona, and the last live snapshot into compact context.
 
 **Why:** compact is how agents forget they already decided the rate-limit key.
+
+---
+
+## OpenCode event map
+
+Same gates as above. Different event names:
+
+| Job | OMP | OpenCode |
+|---|---|---|
+| pre | `tool_call` → `{ block: true, reason }` | `tool.execute.before` → `throw new Error("[beadfinder:…]")` |
+| post | `tool_result` | `tool.execute.after` |
+| boot | `session_start` | `session.created` (+ first `chat.message` if boot was missed) |
+| status refresh | `before_agent_start` / throttled `turn_start` | throttled `chat.message` |
+| compact | `session.compacting` | `experimental.session.compacting` |
+| stop / yield | `agent_end` / `session_shutdown` | `session.deleted` only |
+
+OpenCode `session.idle` fires after every turn, so yield-on-stop does **not** run there (it would drop AFK claims mid-work). Yield runs on `session.deleted`.
+
+OpenCode also covers `apply_patch` (paths parsed from `*** Update File:` markers) and the `task` tool (`prompt` / `subagent_type`). Persona is taken from the OpenCode agent name (`wayfinder`, `architect`, …) as well as `session-boot.sh --persona`. Hook state is keyed by session id under `.opencode/beadfinder/state.json`.
 
 ---
 
@@ -257,7 +281,7 @@ The debug skill is beadfinder plus “log the mismatch, re-query `bd show`.” I
 | `BEADFINDER_DEBUG` | unset | force the log even without the debug skill |
 | `BEADFINDER_REFRESH_MS` | `45000` | min ms between live snapshots |
 | `BEADFINDER_MUTATING_BUDGET` | `80` | write/edit cap per session |
-| `BEADFINDER_YIELD_ON_STOP` | `afk` | `afk`, `1`, or `0` |
+| `BEADFINDER_YIELD_ON_STOP` | `afk` | `afk`, `1`, or `0`. OpenCode yields on `session.deleted` only. |
 
 ---
 

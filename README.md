@@ -1,6 +1,6 @@
 # Beadfinder
 
-v0.3.2 — a Beads-native wayfinding pack for multi-session agent work.
+v0.4.0 — a Beads-native wayfinding pack for multi-session agent work.
 
 Charts a destination epic, settles one frontier ticket per session, and cuts an execute slice when a plan slice is decided. Personas (`wayfinder`, `architect`, `implementer`, `reviewer`, `product`) hand off through `bd ready` and atomic `--claim`.
 
@@ -30,12 +30,15 @@ bash install.sh --opencode --global
 
 # Oh My Pi plus debug logging (writes <target>/.omp/beadfinder-debug.log)
 bash install.sh --omp --debug
+
+# OpenCode plus debug logging (writes <target>/.opencode/beadfinder-debug.log)
+bash install.sh --opencode --debug
 ```
 
 `install.sh` is checked in as a normal file (`100644`), so `./install.sh` can fail with permission denied. `bash install.sh` does not need the execute bit.
 
 `--omp` writes `.omp/skills` + `.omp/agents` + `.omp/extensions/beadfinder` (or `~/.omp/agent` with `--global`).
-`--opencode` writes `.opencode/skills` + `.opencode/agents` (or `~/.config/opencode` with `--global`). OpenCode hooks are not shipped yet.
+`--opencode` writes `.opencode/skills` + `.opencode/agents` + `.opencode/plugins` + `.opencode/commands` (or `~/.config/opencode` with `--global`).
 
 Then in the **target project** (the repo you will wayfind):
 
@@ -45,7 +48,7 @@ Then in the **target project** (the repo you will wayfind):
 
 HITL grill stays in the wayfinder session. Do not background a grill ticket. Reviewer is read-only.
 
-OMP installs a policy extension under `.omp/extensions/beadfinder/`. Hook behavior: [docs/HOOKS.md](docs/HOOKS.md). Implementer notes: [docs/HOOKS-IMPLEMENTATION.md](docs/HOOKS-IMPLEMENTATION.md). OpenCode hooks are not in this release.
+OMP installs a policy extension under `.omp/extensions/beadfinder/`. OpenCode installs a plugin at `.opencode/plugins/beadfinder.ts` (auto-loaded). Hook behavior: [docs/HOOKS.md](docs/HOOKS.md). Implementer notes: [docs/HOOKS-IMPLEMENTATION.md](docs/HOOKS-IMPLEMENTATION.md). Restart the harness after install so hooks load.
 
 Suggested Oh My Pi roles: wayfinder and architect `@plan`, implementer `@default`, reviewer `@review`.
 
@@ -57,7 +60,7 @@ SKILL.md                 orchestrator
 scripts/                 frontier, claim-next, session-boot, append-decision, debug-log
 companions/              grill, research, to-spec, beadfinder-debug
 agents/                  harness-neutral persona contracts
-adapters/                OpenCode agents; Oh My Pi agents + extensions
+adapters/                OpenCode agents + plugin; Oh My Pi agents + extensions
 docs/                    hook behavior + implementer plan
 references/
 third_party/

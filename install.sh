@@ -7,14 +7,16 @@ usage() {
 usage: install.sh --omp|--opencode [--global] [--dest DIR] [--debug]
 
   --omp         Oh My Pi  (.omp/skills + .omp/agents + extensions)
-  --opencode    OpenCode  (.opencode/skills + .opencode/agents)
+  --opencode    OpenCode  (.opencode/skills + .opencode/agents + plugins + commands)
   --global      user-wide dirs instead of the current project
   --dest DIR    override the harness root (implies not --global)
-  --debug       also install beadfinder-debug (OMP log + status advisor)
+  --debug       also install beadfinder-debug (hook log + status advisor)
 
 Run from a clone of this pack, or via:
   bash /path/to/beadfinder/install.sh --omp
   bash /path/to/beadfinder/install.sh --omp --debug
+  bash /path/to/beadfinder/install.sh --opencode
+  bash /path/to/beadfinder/install.sh --opencode --debug
 EOF
   exit 1
 }
@@ -119,12 +121,38 @@ if [[ "$HARNESS" == "omp" ]]; then
   echo '  { "extensions": [".omp/extensions/beadfinder"] }'
 else
   cp "$PACK/adapters/opencode/agents/"*.md "$AGENTS/"
+  # OpenCode auto-loads only {plugin,plugins}/*.{ts,js}. The entry must be a
+  # top-level file; helpers stay in plugins/beadfinder/lib so they are not
+  # treated as extra plugin modules.
+  PLUGIN_ROOT="$ROOT/plugins"
+  mkdir -p "$PLUGIN_ROOT"
+  rm -f "$PLUGIN_ROOT/beadfinder.ts"
+  rm -rf "$PLUGIN_ROOT/beadfinder"
+  cp "$PACK/adapters/opencode/plugins/beadfinder.ts" "$PLUGIN_ROOT/beadfinder.ts"
+  mkdir -p "$PLUGIN_ROOT/beadfinder"
+  cp -R "$PACK/adapters/opencode/plugins/beadfinder/lib" "$PLUGIN_ROOT/beadfinder/lib"
+  find "$PLUGIN_ROOT/beadfinder" -type f -name '*.test.ts' -delete 2>/dev/null || true
+  echo "plugin in  $PLUGIN_ROOT/beadfinder.ts"
+  echo "OpenCode loads .opencode/plugins/*.ts (or ~/.config/opencode/plugins with --global)"
+  echo "kill switch: BEADFINDER_HOOKS=off"
+
+  CMD_SRC="$PACK/adapters/opencode/commands"
+  if [[ -d "$CMD_SRC" ]]; then
+    COMMANDS="$ROOT/commands"
+    mkdir -p "$COMMANDS"
+    cp "$CMD_SRC/"*.md "$COMMANDS/"
+    echo "commands in $COMMANDS"
+  fi
 fi
 
 echo "installed to $SKILLS"
 echo "agents in   $AGENTS"
 if [[ "$DEBUG" -eq 1 ]]; then
-  echo "debug skill on; log file will be <target-repo>/.omp/beadfinder-debug.log"
+  if [[ "$HARNESS" == "opencode" ]]; then
+    echo "debug skill on; log file will be <target-repo>/.opencode/beadfinder-debug.log"
+  else
+    echo "debug skill on; log file will be <target-repo>/.omp/beadfinder-debug.log"
+  fi
 fi
 echo
 echo "in the target repo: bd init  (if needed)"
