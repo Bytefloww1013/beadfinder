@@ -2,7 +2,7 @@
 name: beadfinder-to-tickets
 description: Decomposes a settled architectural specification (SPEC.md) into 15–40+ fine-grained, tracer-bullet implementation beads with strict sequential DAG blocking chains in Beads (bd). Trigger with /beadfinder-to-tickets.
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # Beadfinder: Slicing Engine (`to-tickets`)

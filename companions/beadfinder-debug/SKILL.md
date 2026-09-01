@@ -2,7 +2,7 @@
 name: beadfinder-debug
 description: Same orchestrator as beadfinder, plus advisor logging to .opencode/beadfinder-debug.log or .omp/beadfinder-debug.log. Use when a session is mis-reading bead status, skipping claims, or you need a trail of hook blocks and agent concerns.
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
   tracker: beads
   debug: true
 ---

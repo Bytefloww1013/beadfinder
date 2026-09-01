@@ -1,4 +1,4 @@
-# Beadfinder 0.4.0
+# Beadfinder 0.5.0
 
 Pack root: this repo.
 
@@ -33,7 +33,7 @@ beadfinder/
 
 Install: `bash install.sh --omp` copies skills, agents, and the OMP extension. `bash install.sh --opencode` copies skills, agents, the plugin (`plugins/beadfinder.ts` + `plugins/beadfinder/lib`), and `/beadfinder`. `--debug` also copies `beadfinder-debug`. `install.sh` `chmod a+x` on copied `*.sh` so `session-boot.sh` can exec `frontier.sh`. Session boot lists live work with `--status open,in_progress` as **one** JSON document.
 
-## What 0.4.0 still is not
+## What 0.5.0 still is not
 
 - Not smoke-tested against every OMP build’s extension loader. If hooks are silent, add `.omp/extensions/beadfinder` to `.omp/settings.json` `extensions`.
 - OpenCode plugin is auto-loaded from `.opencode/plugins/*.ts`. Restart OpenCode after install.

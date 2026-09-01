@@ -1,6 +1,6 @@
 # Beadfinder
 
-v0.4.0 — a Beads-native wayfinding pack for multi-session agent work.
+v0.5.0 — a Beads-native wayfinding pack for multi-session agent work.
 
 Charts a destination epic, settles one frontier ticket per session, and cuts an execute slice when a plan slice is decided. Personas (`wayfinder`, `architect`, `implementer`, `reviewer`, `product`) hand off through `bd ready` and atomic `--claim`.
 
@@ -44,13 +44,15 @@ Then in the **target project** (the repo you will wayfind):
 
 1. `bd init` if `.beads` is missing.
 2. Append [AGENTS.md.snippet](AGENTS.md.snippet) to that project’s `AGENTS.md`.
-3. Start the `wayfinder` agent. It autoloads `beadfinder` and can spawn `architect`, `implementer`, `reviewer`, and `product`.
+3. Start the `wayfinder` agent. It autoloads `beadfinder` and can spawn `architect`, `implementer`, `reviewer`, and `product`. In OpenCode, `/beadfinder` does this in one step: it starts the `wayfinder` agent in the current session and runs session boot.
 
 HITL grill stays in the wayfinder session. Do not background a grill ticket. Reviewer is read-only.
 
 OMP installs a policy extension under `.omp/extensions/beadfinder/`. OpenCode installs a plugin at `.opencode/plugins/beadfinder.ts` (auto-loaded). Hook behavior: [docs/HOOKS.md](docs/HOOKS.md). Implementer notes: [docs/HOOKS-IMPLEMENTATION.md](docs/HOOKS-IMPLEMENTATION.md). Restart the harness after install so hooks load.
 
 Suggested Oh My Pi roles: wayfinder and architect `@plan`, implementer `@default`, reviewer `@review`.
+
+OpenCode agents ship pre-wired: `wayfinder` may `task` only the four workers, and `reviewer` / `product` deny edits. The plugin enforces the same gates as the OMP extension (blocked tools, persona lock, yield-on-stop) via OpenCode events — see the event map in [docs/HOOKS.md](docs/HOOKS.md).
 
 ## Layout
 

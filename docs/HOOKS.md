@@ -1,6 +1,6 @@
 # Beadfinder hooks — human reference
 
-v0.4.0. Oh My Pi and OpenCode.
+v0.5.0. Oh My Pi and OpenCode.
 
 These hooks sit on harness events. The model cannot talk them out of a block. Skills still explain the rules; hooks refuse the move.
 

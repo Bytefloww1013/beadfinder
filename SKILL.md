@@ -2,7 +2,7 @@
 name: beadfinder
 description: Multi-session architectural wayfinding, decision charting, and fog-of-war planning powered by Beads (bd). Traverses the 10 Architectural Pillars to chart exhaustive decision DAGs, resolves fog across sessions, and orchestrates downstream spec and ticket generation. Use when planning large, complex, or ambiguous software projects, or when the user invokes /beadfinder or /wayfinder.
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
   tracker: beads
 ---
 

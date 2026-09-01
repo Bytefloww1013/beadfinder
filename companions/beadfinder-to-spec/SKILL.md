@@ -2,7 +2,7 @@
 name: beadfinder-to-spec
 description: Compiles closed decision beads and Beads memory into a comprehensive architectural specification (SPEC.md). Validates zero remaining planning fog before handoff to ticket generation. Trigger with /beadfinder-to-spec.
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # Beadfinder: Specification Compiler (`to-spec`)
