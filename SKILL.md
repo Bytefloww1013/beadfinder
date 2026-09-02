@@ -28,18 +28,8 @@ Beadfinder breaks down complex software projects whose destination is known but 
 
 ## The 10 Architectural Decision Pillars
 
-When charting a new system, feature, or major refactor, systematically generate decision beads across all 10 pillars:
-
-1. **Domain & Entity Modeling**: Entity relationships, field definitions, enum sets, state machines, and relational constraints.
-2. **Data Persistence & Lifecycle**: DB engine, schema indexing, transaction isolation levels, soft-delete vs hard-purge policies.
-3. **Interface & Contract Boundaries**: Protocol (REST, GraphQL, gRPC), schema validation (Zod, Pydantic, Protobuf), response wrappers.
-4. **Authentication, Authorization & RBAC**: Identity token format, session lifecycles, role-permission matrices, middleware placement.
-5. **Concurrency, Idempotency & Mutations**: Mutation deduplication keys, distributed locks, race condition mitigation.
-6. **Error Handling & Failure Topography**: Standard error schema, retry policies, backoff mechanisms, circuit breakers, fallback states.
-7. **External Integrations & Seams**: Third-party APIs, webhooks, mock harnesses, sandbox testing strategies.
-8. **Performance, Budgets & Caching**: Cache invalidation policies, latency thresholds, payload limits, pagination contracts.
-9. **Observability, Metrics & Telemetry**: Structured log attributes, Prometheus metrics, distributed trace spans, health endpoints.
-10. **State Migration & Seeding**: DB migration scripts, backward compatibility during rollout, mock data fixtures.
+When charting a new system, feature, or refactor, systematically generate decision beads across all 10 pillars:
+[Architectural Decision Pillars - Reference](references/architectural-pillars.md)
 
 ---
 
