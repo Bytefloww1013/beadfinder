@@ -349,17 +349,19 @@ async function handleToolBefore(
         throwBlock(cwd, "bd-close-guard", `Refusing to close destination ${id}. Destination stays open.`);
       }
       const st = loadState(cwd, sessionID);
-      if (st.persona === "implementer" && /beadfinder:review/.test(labels)) {
-        throwBlock(cwd, "bd-close-guard", "Implementer may not close the review ticket.");
+      const inReview = /phase:review|(^|,)review(,|$)/.test(labels);
+      if (st.persona === "implementer" && inReview) {
+        throwBlock(cwd, "bd-close-guard", "Implementer may not close a bead under review. The reviewer closes on pass.");
       }
-      if (st.persona === "reviewer" && /beadfinder:review/.test(labels)) {
+      if (st.persona === "reviewer" && inReview) {
         const reason = flagValue(bd, "--reason") || flagValue(bd, "-r");
-        if (/lgtm/i.test(reason)) {
-          const blockers = await runBd(cwd, ["blocked", "--json"]);
-          const still = asIssues(blockers.json).filter((i) => String(i.id || "").length > 0);
-          if (still.some((i) => issueId(i) === id || labelsOf(i).includes("review"))) {
-            warn(cwd, "bd-close-guard", "Possible open blockers while closing review LGTM", still.map(issueId));
-          }
+        const scores = reason.match(/(\d+)\s*\/\s*10/g) || [];
+        if (!/Review PASS/i.test(reason) || scores.length < 3) {
+          throwBlock(
+            cwd,
+            "bd-close-guard",
+            "Reviewer close reason must record all three scores: quality, correctness, pillars (e.g. Review PASS: quality 9/10, correctness 8/10, pillars 9/10.).",
+          );
         }
       }
       if (

@@ -1,6 +1,6 @@
 ---
 name: beadfinder-implement
-description: Deterministic implementation executor for Beads tasks. Claims and executes single unblocked tasks from bd ready label phase:implement using strict TDD, static verification, and automated closeout. Trigger with /beadfinder-implement.
+description: Deterministic implementation executor for Beads tasks. Claims and executes single unblocked tasks from bd ready label phase:implement using strict TDD, static verification, and submit-for-review handoff. Trigger with /beadfinder-implement.
 metadata:
   version: "0.5.0"
 ---
@@ -12,13 +12,13 @@ Consumes granular implementation tasks from the Beads graph one at a time, enfor
 ## Core Rules
 
 1. **No Spec Redesign**: Implement strictly what is specified in the ticket. Never reopen settled architectural decisions.
-2. **Fresh Session per Ticket**: Claim one ticket, execute it, run tests, commit, close it, and stop.
+2. **Fresh Session per Ticket**: Claim one ticket, execute it, run tests, submit for review, and stop.
 3. **Strict TDD Rhythm**:
    - Write a failing test for the seam defined in the bead.
    - Implement the minimum code needed to pass the test.
    - Run typechecking and the full module test suite.
-4. **Close & Unlock**: Closing the bead automatically unblocks the next micro-ticket in the DAG.
-5. **Spawned Blocking Worker**: You run as a blocking subagent spawned by wayfinder with the ticket id. File discovered work with `--deps discovered-from:<current-id>`, labelled `phase:implement`. Never close the review ticket. If you hit a design hole, add `needs-design` and stop.
+4. **Submit & Hand Off**: Closing the bead is the reviewer's act, not yours. The next micro-ticket unblocks when review passes, so build on reviewed code only.
+5. **Spawned Blocking Worker**: You run as a blocking subagent spawned by wayfinder with the ticket id. File discovered work with `--deps discovered-from:<current-id>`, labelled `phase:implement`. You never close the bead you built — the reviewer closes it on a passing review. If you hit a design hole, add `needs-design` and stop.
 
 ---
 
@@ -46,8 +46,8 @@ bd prime
 4. Re-run the verification command and confirm it passes.
 5. Run the repository typechecker and linter.
 
-### 4. Close Task & Hand Off
+### 4. Submit for Review & Hand Off
 ```bash
-bd close $TASK_ID "Completed: Implemented slice according to contract. All tests passing."
+scripts/review-submit.sh $TASK_ID --summary "<what changed + evidence: test command and result>"
 ```
-Give the close reason as a one-line gist: the wayfinder parent appends it to the implement epic's "Decisions so far" via `append-decision.py` after you return.
+The handoff script swaps the bead into the review queue and reopens it for the reviewer. Give the submit summary as a one-line gist: the wayfinder parent appends it to the implement epic's "Decisions so far" via `append-decision.py` after review passes.

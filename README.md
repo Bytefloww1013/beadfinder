@@ -1,8 +1,10 @@
 # Beadfinder
 
-v0.5.0 — a Beads-native wayfinding pack for multi-session agent work.
+v0.6.0 — a Beads-native wayfinding pack for multi-session agent work.
 
 Charts a destination epic, settles one frontier ticket per session, and cuts an execute slice when a plan slice is decided. Personas (`wayfinder`, `architect`, `implementer`, `reviewer`, `product`) hand off through `bd ready` and atomic `--claim`.
+
+Every build bead goes through a review gauntlet: the implementer submits with `scripts/review-submit.sh` (bead moves `phase:implement` → `phase:review`), and a read-only reviewer re-runs the verification evidence, scores quality / correctness / pillar-adherence 1–10 per [references/review-rubric.md](references/review-rubric.md), and closes on pass (all three ≥ 8) or fails it back with ranked issues — looping until pass. The state machine lives in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 This is not Beads and not Matt Pocock’s Wayfinder. See [NOTICE.md](NOTICE.md).
 
@@ -59,12 +61,13 @@ OpenCode agents ship pre-wired: `wayfinder` may `task` only the four workers, an
 ```
 install.sh               --omp / --opencode copier
 SKILL.md                 orchestrator
-scripts/                 frontier, claim-next, session-boot, append-decision, debug-log
-companions/              grill, research, to-spec, beadfinder-debug
+ARCHITECTURE.md          phase machine, scoring, failure isolation
+scripts/                 frontier, claim-next, review-submit, review-verdict, verify-review-flow, session-boot, append-decision, debug-log
+companions/              grill, research, to-spec, to-tickets, implement, review, beadfinder-debug
 agents/                  harness-neutral persona contracts
 adapters/                OpenCode agents + plugin; Oh My Pi agents + extensions
 docs/                    hook behavior + implementer plan
-references/
+references/              review rubric, pillars, personas, ops
 third_party/
 ```
 

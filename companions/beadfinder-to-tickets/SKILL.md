@@ -77,15 +77,10 @@ Acceptance Criteria:
 
 The `implementation` persona label is what `claim-next.sh --persona implementer` filters on; every build bead MUST carry it.
 
-### 3. Add the Review Ticket
-One `review` ticket per epic so the `reviewer` persona has work. It blocks on the builds that must exist before review is meaningful (usually all of them):
-```bash
-bd create "Review: <Feature Name>" -t task -p 1 \
-  --parent <impl-epic-id> --label phase:implement --label review \
-  -d "Review the closed builds against the contracts in SPEC.md. File blockers as new issues that blocks this review, labelled implementation. Do not edit product code."
-bd dep add <review-id> <step-1-id> --type blocks
-bd dep add <review-id> <step-2-id> --type blocks
-```
+### 3. Review is per-bead
+Every build bead cycles the phase pipeline (see ARCHITECTURE.md): the implementer submits it with `scripts/review-submit.sh`, the reviewer closes it on a passing review or fails it back for rework. No separate review ticket is created.
+
+Build beads carry the `implementation` persona label; the `review` label is applied by the handoff script when the bead enters the review phase, not at creation.
 
 ### 4. Chain Blockers
 Chain `blocks` **only where B cannot start before A** (e.g. schema → types that use it). Independent tasks stay parallel — do not serialize the whole slice into a linked list:
@@ -98,6 +93,6 @@ bd dep add <step-3-id> <step-2-id> --type blocks   # only if step 3 cannot start
 Scripts live in the installed `beadfinder` skill's `scripts/` directory:
 ```bash
 scripts/frontier.sh --parent <impl-epic-id> --persona implementer   # step 1 (and any parallel starts) visible
-scripts/frontier.sh --parent <impl-epic-id> --persona reviewer      # review absent while still blocked
+scripts/frontier.sh --parent <impl-epic-id> --persona reviewer      # submitted builds visible once builders run review-submit.sh
 ```
-As builder agents close each task, blocked work unlocks automatically; spawned `implementer`/`reviewer` subagents claim it atomically with `claim-next.sh`.
+As builder agents submit each task, the reviewer frontier shows them; blocked work unlocks as reviewers close passed beads, and spawned `implementer`/`reviewer` subagents claim it atomically with `claim-next.sh`.

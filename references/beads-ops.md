@@ -40,6 +40,16 @@ bd update <id> --claim --json          # named ticket, HITL
 
 Empty `claim-next` exits 2.
 
+## Review phase
+
+```bash
+scripts/review-submit.sh <id> --summary "<evidence: test command + result>"   # implementer: done → phase:review + review
+scripts/review-verdict.sh <id> --pass --reason "Review PASS: quality 9/10, correctness 8/10, pillars 9/10. <gist>"   # closes
+scripts/review-verdict.sh <id> --fail --reason "<FAIL report: quality/correctness/pillars scores + ranked issues>"
+```
+
+The script posts the `--fail` reason as its own bead comment and returns the bead to implement — one post, from the script; do not pre-post a separate fail comment. Exactly one `phase:*` label at a time; labels move only via the handoff scripts. Pass = all three ≥ 8 (`review-rubric.md`).
+
 ## Close and index
 
 ```bash

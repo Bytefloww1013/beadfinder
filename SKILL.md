@@ -2,7 +2,7 @@
 name: beadfinder
 description: Multi-session architectural wayfinding, decision charting, and fog-of-war planning powered by Beads (bd). Traverses the 10 Architectural Pillars to chart exhaustive decision DAGs, resolves fog across sessions, and orchestrates downstream spec and ticket generation. Use when planning large, complex, or ambiguous software projects, or when the user invokes /beadfinder or /wayfinder.
 metadata:
-  version: "0.5.0"
+  version: "0.6.0"
   tracker: beads
 ---
 
@@ -15,12 +15,13 @@ Beadfinder breaks down complex software projects whose destination is known but 
 1. **Plan, Do Not Build**: Every planning bead represents an architectural decision, technical uncertainty, or spike—never a slice of production code.
 2. **Exhaustive Decision Mapping**: Actively probe the **10 Architectural Pillars**. Never artificially restrict the initial chart to 3–5 items; map every non-trivial decision.
 3. **Strict Phase Isolation**:
-   - Planning beads: `--label phase:plan`
-   - Implementation beads: `--label phase:implement`
+    - Planning beads: `--label phase:plan`
+    - Build beads: `--label phase:implement` (+ persona label `implementation`)
+    - Submitted beads: `--label phase:review` (+ persona label `review`) — applied only by `scripts/review-submit.sh`
 4. **Beads Native Frontier**: Discover actionable work with `bd ready` — through the pack scripts when a parent epic and persona apply, otherwise `bd ready --label phase:plan --json`. Never parse status strings manually. Never select an id in one step and claim it in another.
 5. **Durable Knowledge Bus**: Record lasting invariants and locked choices via `bd remember "Decision: <takeaway>"`.
-6. **One Decision Bead Per Session, In Plan Phase**: In the Plan Pase interactive mode, claim one unblocked bead, resolve it through structured dialogue, research, or spikes, record the resolution, and stop.
-7. **One or More Decisions per Session, In Implement Phase**: In the Implement Phase interactive mode, claim one or more unblocked beads, implement them, and close them with a concise rationale — or spawn one blocking `implementer` per ticket via `/beadfinder-implement`.
+6. **One Decision Bead Per Session, In Plan Phase**: In the Plan Phase interactive mode, claim one unblocked bead, resolve it through structured dialogue, research, or spikes, record the resolution, and stop.
+7. **One or More Decisions per Session, In Implement Phase**: In the Implement Phase interactive mode, claim one or more unblocked beads, implement them, and submit each for review (`scripts/review-submit.sh`) — or spawn one blocking `implementer` per ticket via `/beadfinder-implement`. Nobody closes a build bead except the reviewer on a passing review (`/beadfinder-review`).
 8. **Scripts Over Hand-Rolled bd**: Run the pack scripts from this skill's `scripts/` directory (see Scripts). Prefer them over hand-rolled `bd ready | jq` pipelines.
 9. **Spawn Workers, Do Not Absorb Their Roles**: This skill orchestrates (see Spawn Rules). HITL stays in this session; AFK work belongs to a spawned subagent.
 
@@ -118,7 +119,7 @@ When `bd ready --label phase:plan` returns empty and all decision beads under th
    ```bash
    bd close <map-epic-id> "All architectural decisions locked. Specification compiled."
    ```
-4. Execute the implement graph: spawn one blocking `implementer` per build ticket (`/beadfinder-implement`), then the `reviewer` on the review ticket. After each child returns, append the close gist to the implement epic with `append-decision.py`.
+4. Execute the implement graph: for each build ticket spawn a blocking `implementer` (`/beadfinder-implement`), which submits via `scripts/review-submit.sh` when done. Then spawn the `reviewer` (`/beadfinder-review`) per submitted bead: it verifies evidence, scores quality/correctness/pillar-adherence 1–10 (`references/review-rubric.md`, pass = all ≥ 8), closes on pass or fails it back to the implementer — loop until pass. After each child returns, append the pass gist to the implement epic with `append-decision.py`.
 
 ---
 
@@ -128,7 +129,7 @@ When `bd ready --label phase:plan` returns empty and all decision beads under th
 - HITL (`beadfinder:grill`, `beadfinder:prototype`) never leaves the parent. A background child will answer for the human.
 - `architect` spawns blocking, for ADR/options groundwork on grill beads. It returns a gist; the decision is made in the parent.
 - `research` spawns parallel and non-blocking (`/beadfinder-research`). Everyone else blocks the parent.
-- In the implement phase, spawn one blocking `implementer` or `reviewer` per ticket (`/beadfinder-implement`).
+- In the implement phase, spawn one blocking `implementer` per build ticket (`/beadfinder-implement`) and one blocking `reviewer` per submitted bead (`/beadfinder-review`). Review loops until pass: the reviewer fails the bead back (`scripts/review-verdict.sh --fail`), the implementer fixes and re-submits (`scripts/review-submit.sh`).
 - Spawn `product` only for non-grill requirements/UAT tickets; never for grill.
 - Child prompt includes: ticket title, id, parent epic id, decision gists to respect, "one ticket only", "claim before work".
 
@@ -139,16 +140,21 @@ Run from this skill's `scripts/` directory (the installer copies it next to this
 - `session-boot.sh [--persona name] [--parent <epic-id>]` — start of every session
 - `frontier.sh --parent <epic> --persona <name>` — look, do not claim
 - `claim-next.sh --parent <epic> --persona <name>` — atomic pick+claim. Exit 2 = empty frontier: stop and report
+- `review-submit.sh <id> [--summary "..."]` — implementer handoff: build bead → review queue (swaps `phase:implement`/`implementation` → `phase:review`/`review`, reopens + unassigns)
+- `review-verdict.sh <id> --pass|--fail --reason "..."` — reviewer verdict: pass closes with the score reason; fail sends the bead back to the implementer queue
+- `verify-review-flow.sh` — smoke-test the whole review loop against a scratch bd store
 - `append-decision.py --epic <epic> --title "..." --id <ticket> --gist "..."` — Decisions-so-far append on a destination or slice epic
 - `debug-log.py` — only when running the `beadfinder-debug` variant
 
-Persona → role label used by the scripts: `wayfinder`, `architecture`, `implementation`, `review`, `product`. Execute-phase tickets must carry the matching persona label (`implementation`, `review`) or the scripts cannot find them.
+Persona → role label used by the scripts: `wayfinder`, `architecture`, `implementation`, `review`, `product`. Build beads carry `implementation`; the `review` label is applied by `review-submit.sh` when a bead enters the review phase.
 
 ---
 
 ## Gotchas
 - **Do Not Answer Grilling Questions Autonomously**: HITL beads require user collaboration; never invent user preferences.
 - **Do Not Implement Code in Tasks**: `beadfinder:task` is strictly for unblocking research (e.g. provisioning keys), never early feature code.
+- **Implementers Never Close Their Own Builds**: finishing means `scripts/review-submit.sh`; only the reviewer closes, and only with a passing score record (`references/review-rubric.md`, pass = all three ≥ 8).
 - **Never Skip Pillars**: Always check if authentication, error handling, and migrations apply before declaring planning complete.
 - **Atomic Claims Only**: `scripts/claim-next.sh` for persona queues; `bd update <id> --claim` for a named ticket. Never `bd ready | jq` in one step and claim in another.
+- **Phase Labels Move Only Via The Scripts**: hand-rolled `bd update` label swaps between `phase:implement` and `phase:review` strand work; use `review-submit.sh` / `review-verdict.sh`.
 - **Fresh Status, Not Chat Memory**: Confirm with `bd show <id> --json` before claiming or closing. A closed bead stays closed. The tracker dir is `.beads`; do not glob `beads/`.

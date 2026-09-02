@@ -1,9 +1,21 @@
-import { describe, expect, test, beforeEach, afterEach } from "bun:test";
+import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createBeadfinder } from "./policy.ts";
+import * as bd from "./bd.ts";
 import { loadState, saveState } from "./state.ts";
+
+let fakeIssue: Record<string, unknown> | null = null;
+
+function mockBdShow() {
+  return spyOn(bd, "runBd").mockImplementation(async (_cwd: string, args: string[]) => {
+    if (args[0] === "show" && fakeIssue) {
+      return { ok: true, raw: JSON.stringify([fakeIssue]), json: [fakeIssue] };
+    }
+    return { ok: true, raw: "", json: null };
+  });
+}
 
 let dir = "";
 const sessionID = "ses_test";
@@ -93,6 +105,68 @@ describe("OpenCode policy hooks", () => {
     await plugin()["experimental.session.compacting"]({ sessionID }, output);
     expect(output.context.some((l) => l.includes("auth-12"))).toBe(true);
     expect(output.context.some((l) => l.includes("implementer"))).toBe(true);
+  });
+
+  test("implementer cannot close a phase:review bead", async () => {
+    const st = loadState(dir, sessionID);
+    st.persona = "implementer";
+    saveState(dir, sessionID, st);
+    fakeIssue = { id: "bf-9", status: "open", issue_type: "task", labels: ["phase:review", "review"] };
+    const spy = mockBdShow();
+    try {
+      await expect(before("bash", { command: 'bd close bf-9 --reason "done"' })).rejects.toThrow(
+        /\[beadfinder:bd-close-guard\] Implementer may not close a bead under review/,
+      );
+    } finally {
+      fakeIssue = null;
+      spy.mockRestore();
+    }
+  });
+
+  test("reviewer close without the three scores is rejected", async () => {
+    const st = loadState(dir, sessionID);
+    st.persona = "reviewer";
+    saveState(dir, sessionID, st);
+    fakeIssue = { id: "bf-9", status: "open", issue_type: "task", labels: ["phase:review", "review"] };
+    const spy = mockBdShow();
+    try {
+      await expect(before("bash", { command: 'bd close bf-9 --reason "looks good"' })).rejects.toThrow(
+        /\[beadfinder:bd-close-guard\] Reviewer close reason must record all three scores/,
+      );
+    } finally {
+      fakeIssue = null;
+      spy.mockRestore();
+    }
+  });
+
+  test("reviewer close with Review PASS and three scores is allowed", async () => {
+    const st = loadState(dir, sessionID);
+    st.persona = "reviewer";
+    saveState(dir, sessionID, st);
+    fakeIssue = { id: "bf-9", status: "open", issue_type: "task", labels: ["phase:review", "review"] };
+    const spy = mockBdShow();
+    try {
+      await before("bash", {
+        command: 'bd close bf-9 --reason "Review PASS: quality 9/10, correctness 8/10, pillars 9/10. Solid diff."',
+      });
+    } finally {
+      fakeIssue = null;
+      spy.mockRestore();
+    }
+  });
+
+  test("reviewer may close a non-review bead without scores", async () => {
+    const st = loadState(dir, sessionID);
+    st.persona = "reviewer";
+    saveState(dir, sessionID, st);
+    fakeIssue = { id: "bf-8", status: "open", issue_type: "task", labels: ["phase:execute"] };
+    const spy = mockBdShow();
+    try {
+      await before("bash", { command: 'bd close bf-8 --reason "done"' });
+    } finally {
+      fakeIssue = null;
+      spy.mockRestore();
+    }
   });
 
   test("session state is isolated by session id", () => {

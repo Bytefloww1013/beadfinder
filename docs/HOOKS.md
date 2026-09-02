@@ -146,10 +146,11 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 **Blocks:**
 - close without `--reason`
 - close of a `beadfinder:destination`
-- implementer closing a `beadfinder:review`
+- implementer closing any bead labeled `phase:review` or `review` (only the reviewer closes)
+- reviewer close whose reason does not read `Review PASS` and contain all three N/10 scores (no labeled-order check)
 - close of an epic that still has open children
 
-**Why:** close is how later sessions learn the decision. A empty reason or a wrapped-up destination wrecks the map.
+**Why:** close is how later sessions learn the decision. A empty reason or a wrapped-up destination wrecks the map; an implementer self-pass skips the gauntlet.
 
 ---
 
@@ -167,7 +168,7 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 
 **When:** `claim-next.sh` returns empty / exit 2; later product writes in that session.
 
-**Blocks:** inventing product work after an empty frontier.
+**Blocks:** `write` / `edit` on product files after an empty frontier (bash rewrites fall through to claim-gate / persona-fs-guard instead).
 
 **Why:** unattended implementer with no queue starts making tickets up.
 

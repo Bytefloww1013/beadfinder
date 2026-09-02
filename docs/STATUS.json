@@ -1,0 +1,44 @@
+{
+  "generated": "2026-09-02",
+  "flow": "phase:implement + implementation -> (implementer) scripts/review-submit.sh -> phase:review + review -> (reviewer) verify evidence, score Quality/Correctness/Pillars 1-10, pass = all >= 8 -> close on pass, review-verdict.sh --fail sends back. Loop, no cap. See ARCHITECTURE.md.",
+  "scoring": "references/review-rubric.md (anchored integers, evidence mandatory, pass = all three >= 8)",
+  "verification": {
+    "scripts": "bash scripts/verify-review-flow.sh -> 10 passed, 0 failed",
+    "plugin": "bun test adapters/opencode/plugins/beadfinder/lib/ -> 26 pass, 0 fail",
+    "install": "bash install.sh --opencode --dest <tmp> -> beadfinder-review skill + all scripts shipped, installed smoke test passes",
+    "stale_labels": "grep beadfinder:review across agents/adapters/companions/scripts/references/docs/root -> clean"
+  },
+  "gauntlet_rounds": [
+    {
+      "round": 1,
+      "modules": {
+        "scripts": { "quality": 8, "correctness": 7, "pillars": 8, "verdict": "FAIL" },
+        "companions": { "quality": 9, "correctness": 9, "pillars": 9, "verdict": "PASS" },
+        "agents_adapters": { "quality": 9, "correctness": 7, "pillars": 8, "verdict": "FAIL" },
+        "references_docs": { "quality": 6, "correctness": 4, "pillars": 8, "verdict": "FAIL" },
+        "root": { "quality": 9, "correctness": 9, "pillars": 9, "verdict": "PASS" }
+      },
+      "notes": "scripts: verdict script resurrected closed beads (no closed-guard); docs shipped --pass/--fail forms the scripts reject; opencode-only guard sync missed the Oh My Pi twin."
+    },
+    {
+      "round": 2,
+      "modules": {
+        "scripts": { "quality": 9, "correctness": 9, "pillars": 9, "verdict": "PASS" },
+        "companions": { "quality": 9, "correctness": 9, "pillars": 9, "verdict": "PASS (round 1, plus integrator seam delta re-checked round 2)" },
+        "agents_adapters": { "quality": 9, "correctness": 9, "pillars": 9, "verdict": "PASS" },
+        "references_docs": { "quality": 9, "correctness": 8, "pillars": 9, "verdict": "PASS" },
+        "root_seams": { "quality": 9, "correctness": 9, "pillars": 9, "verdict": "PASS" }
+      },
+      "notes": "All round-1 blockers fixed and re-verified with live probes; every module >= 8 on all three dimensions."
+    }
+  ],
+  "open_issues": [
+    "nit (scripts): contains() label guard admits a bead carrying both phase labels; state machine never produces that state",
+    "nit (scripts): if bd comment succeeds but bd update fails on --fail, the FAIL comment posts without the label return; set -e exits loud, re-run is safe",
+    "nit (adapters): Oh My Pi extension has no test file of its own; tests live in the opencode plugin only",
+    "nit (references): personas.md reviewer cell shorthand omits <id> in review-verdict.sh --fail --reason",
+    "nit (docs): HOOKS.md under-enumerates write-class tools (multiedit, apply_patch) in the empty-frontier row",
+    "observation (companions): review SKILL.md step 4's generic 'post a review comment' could be misread as a second post on fail rounds; step 5's one-post rule is authoritative"
+  ],
+  "weakest_module": "references_docs (correctness 8) — raise to 9 by carrying <id> in personas.md shorthand and enumerating all write-class tools in HOOKS.md"
+}

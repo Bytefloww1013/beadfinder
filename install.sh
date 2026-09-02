@@ -92,6 +92,7 @@ copy_skill() {
 copy_skill beadfinder "$PACK"
 copy_skill beadfinder-grill "$PACK/companions/beadfinder-grill"
 copy_skill beadfinder-implement "$PACK/companions/beadfinder-implement"
+copy_skill beadfinder-review "$PACK/companions/beadfinder-review"
 copy_skill beadfinder-research "$PACK/companions/beadfinder-research"
 copy_skill beadfinder-to-spec "$PACK/companions/beadfinder-to-spec"
 copy_skill beadfinder-to-tickets "$PACK/companions/beadfinder-to-tickets"

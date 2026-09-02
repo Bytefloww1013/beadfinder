@@ -35,5 +35,5 @@ bd dep add bd-xxx.5 bd-xxx.4 --type blocks
 bd dep add bd-xxx.6 bd-xxx.5 --type blocks
 ```
 
-Every build bead carries the `implementation` persona label (plus one `review` ticket per epic) so `claim-next.sh` can route work to `implementer`/`reviewer` subagents.
+Every build bead carries `phase:implement` + `implementation` so `claim-next.sh` can route it to an `implementer` subagent. Review is per-bead through the phase pipeline (see `ARCHITECTURE.md`): `review-submit.sh` swaps `phase:implement` for `phase:review` during handoff, and downstream beads unblock when the reviewer closes a passed bead.
 
