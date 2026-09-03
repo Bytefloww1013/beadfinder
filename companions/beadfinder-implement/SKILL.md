@@ -2,7 +2,7 @@
 name: beadfinder-implement
 description: Deterministic implementation executor for Beads tasks. Claims and executes single unblocked tasks from bd ready label phase:implement using strict TDD, static verification, and submit-for-review handoff. Trigger with /beadfinder-implement.
 metadata:
-  version: "0.5.0"
+  version: "0.7.0"
 ---
 
 # Beadfinder: Implementation Worker
@@ -18,7 +18,7 @@ Consumes granular implementation tasks from the Beads graph one at a time, enfor
    - Implement the minimum code needed to pass the test.
    - Run typechecking and the full module test suite.
 4. **Submit & Hand Off**: Closing the bead is the reviewer's act, not yours. The next micro-ticket unblocks when review passes, so build on reviewed code only.
-5. **Spawned Blocking Worker**: You run as a blocking subagent spawned by wayfinder with the ticket id. File discovered work with `--deps discovered-from:<current-id>`, labelled `phase:implement`. You never close the bead you built — the reviewer closes it on a passing review. If you hit a design hole, add `needs-design` and stop.
+5. **Spawned Blocking Worker**: You run with a named ticket id — claim it by named id (`bd update <id> --claim`); queue mode uses `claim-next.sh` (step 1) when no id was passed. File discovered work with `--deps discovered-from:<current-id>`, labelled `phase:implement`. You never close the bead you built — the reviewer closes it on a passing review. If you hit a design hole, add `needs-design` and stop. If the ticket reveals a missing slice, submit what you have and report; the wayfinder slices emergent work via `/beadfinder-to-tickets` with `--deps discovered-from:` — you never re-slice settled work.
 
 ---
 

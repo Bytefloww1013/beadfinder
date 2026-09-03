@@ -77,6 +77,12 @@ describe("path walls", () => {
     expect(personaWall(cwd, "architect", "docs/adr/001.md")).toBe("");
     expect(personaWall(cwd, "implementer", "src/foo.ts")).toBe("");
   });
+
+  test("research is walled like product", () => {
+    expect(personaWall(cwd, "research", "src/foo.ts")).toMatch(/research may not edit/);
+    expect(personaWall(cwd, "research", "SPEC.md")).toBe("");
+    expect(personaWall(cwd, "research", "docs/adr/001.md")).toBe("");
+  });
 });
 
 describe("spawn + bd parsing", () => {
@@ -91,6 +97,11 @@ describe("spawn + bd parsing", () => {
     expect(bad.ok).toBe(false);
     const good = spawnContract("Ticket auth-12 under slice-1. one ticket only. claim before work.");
     expect(good.ok).toBe(true);
+    const dotted = spawnContract(
+      "Ticket agent-workflow-change-cny.4 under slice. one ticket only. claim before work.",
+    );
+    expect(dotted.hasId).toBe(true);
+    expect(dotted.ok).toBe(true);
   });
 
   test("firstBdInvocation + labels", () => {

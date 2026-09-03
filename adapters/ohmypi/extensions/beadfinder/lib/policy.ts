@@ -4,7 +4,7 @@
  * Default-export hook factory. Loaded from .omp/extensions/beadfinder/.
  */
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
-import { asIssues, formatSnapshot, isAppendDecision, isClaimNext, isClosedStatus, isSessionBoot, issueId, labelsOf, listLive, parseClaimNextArgs, rememberScriptContext, runBd } from "./bd.ts";
+import { asIssues, formatSnapshot, isAppendDecision, isClaimNext, isClosedStatus, isSessionBoot, issueId, labelsOf, listLive, modeFromLabels, parseClaimNextArgs, rememberScriptContext, runBd } from "./bd.ts";
 import { hooksDisabled } from "./fsutil.ts";
 import { advisor, debugLog } from "./log.ts";
 import { isBareBeadsPath, isLikelyAdrPath, isProductPath, isProtectedPath, isTrackerSidecar } from "./paths.ts";
@@ -112,6 +112,7 @@ function personaWall(cwd: string, persona: Persona, path: string): string | "" {
   switch (persona) {
     case "wayfinder":
     case "product":
+    case "research":
       if (product) return `${persona} may not edit product files (${path}).`;
       return "";
     case "architect":
@@ -242,7 +243,7 @@ export function createBeadfinder(pi: HookAPI): void {
           { tool: name },
         );
       }
-      const hasId = /\bbd-[a-z0-9._-]+|\b[a-z]+-\d+/i.test(text);
+      const hasId = /\bbd-[a-z0-9._-]+|\b[a-z]+-\d+|\b[a-z][a-z0-9-]*\.\d+/i.test(text);
       const hasOne = /one ticket only/i.test(text);
       const hasClaim = /claim before work/i.test(text);
       if (text && !(hasId && hasOne && hasClaim)) {
@@ -254,7 +255,7 @@ export function createBeadfinder(pi: HookAPI): void {
         return block(
           cwd,
           "spawn-contract",
-          "Spawn prompt must include ticket title, id, parent slice id, ADR gists, “one ticket only”, and “claim before work”.",
+          "Spawn prompt must include ticket title, id, parent slice id, decision gists, “one ticket only”, and “claim before work”.",
         );
       }
     }
@@ -313,14 +314,14 @@ export function createBeadfinder(pi: HookAPI): void {
 
     if (sub === "create") {
       const labels = labelBlob(bd);
-      if (/phase:execute|beadfinder:build/.test(labels)) {
+      if (/phase:(execute|implement)|beadfinder:build/.test(labels)) {
         const parent = flagValue(bd, "--parent") || loadState(cwd).parent;
         if (parent) {
           const openKids = await runBd(pi, ["list", "--parent", parent, "--status", "open", "--json"]);
           const kids = asIssues(openKids.json).filter((i) => !isClosedStatus(i.status));
           const parentIssue = await showIssue(pi, parent);
           const parentLabels = parentIssue ? labelsOf(parentIssue).join(",") : "";
-          if (/phase:wayfind/.test(parentLabels) && kids.length) {
+          if (/phase:(wayfind|plan)/.test(parentLabels) && kids.length) {
             return block(
               cwd,
               "phase-gate",
@@ -412,6 +413,9 @@ export function createBeadfinder(pi: HookAPI): void {
           st.claimedAt = new Date().toISOString();
           st.claimsThisSession += 1;
           st.lastClaimedNonResearch = st.persona !== "unknown";
+          const issue = await showIssue(pi, id);
+          const mode = issue ? modeFromLabels(labelsOf(issue)) : "";
+          if (mode) st.mode = mode;
         }
         const parsed = parseClaimNextArgs(cmd);
         if (parsed.persona) st.persona = parsed.persona;
@@ -444,6 +448,17 @@ export function createBeadfinder(pi: HookAPI): void {
       if (closedHits.length) {
         const st = loadState(cwd);
         for (const id of closedHits) st.seenClosed[id] = new Date().toISOString();
+        saveState(cwd, st);
+      }
+    }
+
+    if (bd && bd[1] === "update" && hasFlag(bd, "--claim")) {
+      const id = bd[2] && !bd[2].startsWith("-") ? bd[2] : "";
+      if (id) {
+        const issue = await showIssue(pi, id);
+        const st = loadState(cwd);
+        const mode = issue ? modeFromLabels(labelsOf(issue)) : "";
+        if (mode) st.mode = mode;
         saveState(cwd, st);
       }
     }
@@ -490,7 +505,7 @@ function extractFirstId(text: string): string {
   } catch {
     /* not json */
   }
-  const m = text.match(/\b([a-z][a-z0-9]*-\d+(?:\.\d+)*)\b/i);
+  const m = text.match(/\b([a-z][a-z0-9]*-[a-z0-9-]*\.\d+(?:\.\d+)*|[a-z][a-z0-9]*-\d+(?:\.\d+)*)\b/i);
   return m ? m[1] : "";
 }
 

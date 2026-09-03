@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Implementation worker for beadfinder execute slices.
+description: Implementation worker for beadfinder build slices.
 model: "@default"
 blocking: true
 ---

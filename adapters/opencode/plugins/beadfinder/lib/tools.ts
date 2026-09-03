@@ -161,7 +161,7 @@ export function hitlInText(text: string): boolean {
 }
 
 export function spawnContract(text: string): { ok: boolean; hasId: boolean; hasOne: boolean; hasClaim: boolean } {
-  const hasId = /\bbd-[a-z0-9._-]+|\b[a-z]+-\d+/i.test(text);
+  const hasId = /\bbd-[a-z0-9._-]+|\b[a-z]+-\d+|\b[a-z][a-z0-9-]*\.\d+/i.test(text);
   const hasOne = /one ticket only/i.test(text);
   const hasClaim = /claim before work/i.test(text);
   return { ok: !!(text && hasId && hasOne && hasClaim), hasId, hasOne, hasClaim };

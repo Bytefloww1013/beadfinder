@@ -2,10 +2,12 @@
 name: beadfinder-research
 description: Resolve an AFK research ticket by reading the repo, docs, or APIs and returning a fact a decision is waiting on. Use when beadfinder or architect spawns a research child.
 metadata:
-  version: "0.5.0"
+  version: "0.7.0"
 ---
 
 # Research
+
+Research serves plan, requirements, and design stages; the bead's stage label (`phase:plan`, `phase:requirements`, or `phase:design`) plus the `research` role label say which queue it belongs to.
 
 AFK. No human required. One ticket.
 
@@ -15,6 +17,11 @@ Spawn context: research is the only non-blocking role. The wayfinder parent spaw
 2. Read outside or inside the repo until the Question is answered well enough to unblock the next ticket.
 3. Comment the evidence (paths, URLs, short quotes). Do not paste a novel.
 4. `bd close <id> --reason "<one-line fact>" --json`.
-5. Create follow-up tickets only when you discovered a *sharp* new question. Label them, `--deps discovered-from:<id>`. Do not pre-slice fog.
+5. Create follow-up tickets only when you discovered a *sharp* new question. Do not pre-slice fog:
+   ```bash
+   bd create "Research: <question>" -t task -p 2 --parent <slice-id> --no-inherit-labels \
+     -l "phase:requirements,research,afk" --deps discovered-from:<id> --json
+   ```
+   Swap the stage label per phase (`phase:plan`, `phase:requirements`, or `phase:design`) — plan-stage follow-ups parent to the map epic instead of a slice.
 
 Do not write production code. Do not close grill tickets. Do not update the destination epic unless the parent asked you to.

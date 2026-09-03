@@ -33,9 +33,13 @@ export function isLiveStatus(status: string | undefined): boolean {
 export function personaFromRoleLabel(label: string): Persona | "" {
   switch (label) {
     case "wayfinder":
+    case "wayfind":
       return "wayfinder";
+    case "architect":
     case "architecture":
       return "architect";
+    case "research":
+      return "research";
     case "implementation":
       return "implementer";
     case "review":
@@ -48,11 +52,18 @@ export function personaFromRoleLabel(label: string): Persona | "" {
 }
 
 export function personaFromArg(value: string): Persona | "" {
-  const v = value.toLowerCase();
-  if (v === "wayfinder" || v === "architect" || v === "implementer" || v === "reviewer" || v === "product") {
+  const v = (value || "").toLowerCase();
+  if (v === "wayfinder" || v === "architect" || v === "research" || v === "implementer" || v === "reviewer" || v === "product") {
     return v;
   }
   return personaFromRoleLabel(v);
+}
+
+export function modeFromLabels(labels: string[]): "hitl" | "afk" | "" {
+  const blob = labels.join(" ").toLowerCase();
+  if (/\bhitl\b/.test(blob) || /beadfinder:grill/.test(blob)) return "hitl";
+  if (/\bafk\b/.test(blob)) return "afk";
+  return "";
 }
 
 export function parseClaimNextArgs(cmd: string): { parent: string; persona: Persona | "" } {

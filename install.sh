@@ -157,5 +157,4 @@ if [[ "$DEBUG" -eq 1 ]]; then
 fi
 echo
 echo "in the target repo: bd init  (if needed)"
-echo "append AGENTS.md.snippet to that repo's AGENTS.md"
 echo "start the wayfinder agent"

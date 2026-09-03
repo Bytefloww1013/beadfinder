@@ -1,8 +1,8 @@
 # Beadfinder
 
-v0.6.0 — a Beads-native wayfinding pack for multi-session agent work.
+v0.7.0 — a Beads-native wayfinding pack for multi-session agent work.
 
-Charts a destination epic, settles one frontier ticket per session, and cuts an execute slice when a plan slice is decided. Personas (`wayfinder`, `architect`, `implementer`, `reviewer`, `product`) hand off through `bd ready` and atomic `--claim`.
+Charts a destination epic and runs five phases — plan → requirements → design → implement → review — one plan decision per session, build tickets through the review gauntlet. Personas (`wayfinder`, `research`, `architect`, `implementer`, `reviewer`, `product`) hand off through `bd ready` and atomic `--claim`. Plan decisions close in phase; requirements compile into SPEC.md (the SRS); design writes ARCHITECTURE.md + IMPLEMENTATION.md and cuts the ticket DAG; builds flow through the review gauntlet.
 
 Every build bead goes through a review gauntlet: the implementer submits with `scripts/review-submit.sh` (bead moves `phase:implement` → `phase:review`), and a read-only reviewer re-runs the verification evidence, scores quality / correctness / pillar-adherence 1–10 per [references/review-rubric.md](references/review-rubric.md), and closes on pass (all three ≥ 8) or fails it back with ranked issues — looping until pass. The state machine lives in [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -45,20 +45,21 @@ bash install.sh --opencode --debug
 Then in the **target project** (the repo you will wayfind):
 
 1. `bd init` if `.beads` is missing.
-2. Start the `wayfinder` agent. It autoloads `beadfinder` and can spawn `architect`, `implementer`, `reviewer`, and `product`. In OpenCode, `/beadfinder` does this in one step: it starts the `wayfinder` agent in the current session and runs session boot.
+2. Start the `wayfinder` agent. It autoloads `beadfinder` and can spawn `architect`, `implementer`, `reviewer`, `research`, and `product`. In OpenCode, `/beadfinder` does this in one step: it starts the `wayfinder` agent in the current session and runs session boot.
 
 OMP installs a policy extension under `.omp/extensions/beadfinder/`. OpenCode installs a plugin at `.opencode/plugins/beadfinder.ts` (auto-loaded). Hook behavior: [docs/HOOKS.md](docs/HOOKS.md). Implementer notes: [docs/HOOKS-IMPLEMENTATION.md](docs/HOOKS-IMPLEMENTATION.md). Restart the harness after install so hooks load.
 
 Suggested Oh My Pi roles: wayfinder and architect `@plan`, implementer `@default`, reviewer `@review`.
 
-OpenCode agents ship pre-wired: `wayfinder` may `task` only the four workers, and `reviewer` / `product` deny edits. The plugin enforces the same gates as the OMP extension (blocked tools, persona lock, yield-on-stop) via OpenCode events — see the event map in [docs/HOOKS.md](docs/HOOKS.md).
+OpenCode agents ship pre-wired: `wayfinder` may `task` the five workers (`architect`, `implementer`, `reviewer`, `research`, `product`), and `reviewer` / `product` / `research` deny edits. The plugin enforces the same gates as the OMP extension (blocked tools, persona lock, yield-on-stop) via OpenCode events — see the event map in [docs/HOOKS.md](docs/HOOKS.md).
 
 ## Layout
 
 ```
 install.sh               installation of the skill/plugin/hooks and other associated files (be sure to use the correct flags)
 SKILL.md                 orchestrator
-ARCHITECTURE.md          phase machine, scoring, failure isolation
+ARCHITECTURE.md          phase machine, label vocabulary, subsystems, scoring, failure isolation
+IMPLEMENTATION.md        locked decisions + pack tree
 scripts/                 frontier, claim-next, review-submit, review-verdict, verify-review-flow, session-boot, append-decision, debug-log
 companions/              beadfinder-grill, beadfinder-research, beadfinder-to-spec, beadfinder-to-tickets, beadfinder-implement, beadfinder-review, beadfinder-debug
 agents/                  harness-neutral persona contracts

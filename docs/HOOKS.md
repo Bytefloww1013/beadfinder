@@ -130,7 +130,7 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 
 ## phase-gate
 
-**When:** `bd create` with `phase:execute` or `beadfinder:build`.
+**When:** `bd create` with build labels (`phase:implement`, legacy `phase:execute`/`beadfinder:build`) while the parent plan epic (`phase:plan`, legacy `phase:wayfind`) still has open children.
 
 **Blocks:** cutting an execute slice while the parent plan slice still has open children.
 

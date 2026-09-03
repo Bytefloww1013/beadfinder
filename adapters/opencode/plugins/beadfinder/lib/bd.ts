@@ -34,9 +34,13 @@ export function isLiveStatus(status: string | undefined): boolean {
 export function personaFromRoleLabel(label: string): Persona | "" {
   switch (label) {
     case "wayfinder":
+    case "wayfind":
       return "wayfinder";
+    case "architect":
     case "architecture":
       return "architect";
+    case "research":
+      return "research";
     case "implementation":
       return "implementer";
     case "review":
@@ -50,7 +54,7 @@ export function personaFromRoleLabel(label: string): Persona | "" {
 
 export function personaFromArg(value: string): Persona | "" {
   const v = (value || "").toLowerCase();
-  if (v === "wayfinder" || v === "architect" || v === "implementer" || v === "reviewer" || v === "product") {
+  if (v === "wayfinder" || v === "architect" || v === "research" || v === "implementer" || v === "reviewer" || v === "product") {
     return v;
   }
   return personaFromRoleLabel(v);
@@ -224,7 +228,7 @@ export function extractFirstId(text: string): string {
   } catch {
     /* not json */
   }
-  const m = text.match(/\b([a-z][a-z0-9]*-\d+(?:\.\d+)*)\b/i);
+  const m = text.match(/\b([a-z][a-z0-9]*-[a-z0-9-]*\.\d+(?:\.\d+)*|[a-z][a-z0-9]*-\d+(?:\.\d+)*)\b/i);
   return m ? m[1] : "";
 }
 

@@ -1,5 +1,5 @@
 ---
-description: Implementation worker for beadfinder execute slices.
+description: Implementation worker for beadfinder build slices.
 mode: subagent
 color: "#2f9e44"
 permission:
