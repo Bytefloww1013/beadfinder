@@ -75,7 +75,6 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 
 **Throttle:** `BEADFINDER_REFRESH_MS` (default 45000).
 
-**Why:** the 0.2 failure you hit — status stayed “open” in the transcript until you asked it to look again.
 
 ---
 
@@ -180,7 +179,7 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 
 **Blocks:** looking at `beads/` (no leading dot).
 
-**Why:** the 0.3 debug log had `glob failed` / `Path not found: beads`. The database is `.beads/`. Agents should `bd show` / `bd list --json` instead of walking the store.
+**Why:** Anything else will not be the correct location
 
 ---
 

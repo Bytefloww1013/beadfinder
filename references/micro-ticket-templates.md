@@ -4,7 +4,7 @@ To ensure tickets fit comfortably in a single agent context window (100–250 li
 
 ## Template: Decomposing a Backend Feature (e.g., "User Profile Avatar Upload")
 
-Instead of a single ticket `"Build User Avatar Upload"`, create 6 linked micro-tickets:
+Instead of a single ticket `"Build User Avatar Upload"`, break the task down into it's essential parts as micro tickets:
 
 1. **Task 1 (`bd-xxx.1`)**: Database Schema & Migration
    - *Target*: `migrations/20260831_add_avatar_url_to_users.sql`
