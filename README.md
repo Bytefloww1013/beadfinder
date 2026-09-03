@@ -45,10 +45,7 @@ bash install.sh --opencode --debug
 Then in the **target project** (the repo you will wayfind):
 
 1. `bd init` if `.beads` is missing.
-2. Append [AGENTS.md.snippet](AGENTS.md.snippet) to that project’s `AGENTS.md`.
-3. Start the `wayfinder` agent. It autoloads `beadfinder` and can spawn `architect`, `implementer`, `reviewer`, and `product`. In OpenCode, `/beadfinder` does this in one step: it starts the `wayfinder` agent in the current session and runs session boot.
-
-HITL grill stays in the wayfinder session. Do not background a grill ticket. Reviewer is read-only.
+2. Start the `wayfinder` agent. It autoloads `beadfinder` and can spawn `architect`, `implementer`, `reviewer`, and `product`. In OpenCode, `/beadfinder` does this in one step: it starts the `wayfinder` agent in the current session and runs session boot.
 
 OMP installs a policy extension under `.omp/extensions/beadfinder/`. OpenCode installs a plugin at `.opencode/plugins/beadfinder.ts` (auto-loaded). Hook behavior: [docs/HOOKS.md](docs/HOOKS.md). Implementer notes: [docs/HOOKS-IMPLEMENTATION.md](docs/HOOKS-IMPLEMENTATION.md). Restart the harness after install so hooks load.
 
@@ -59,11 +56,11 @@ OpenCode agents ship pre-wired: `wayfinder` may `task` only the four workers, an
 ## Layout
 
 ```
-install.sh               --omp / --opencode copier
+install.sh               installation of the skill/plugin/hooks and other associated files (be sure to use the correct flags)
 SKILL.md                 orchestrator
 ARCHITECTURE.md          phase machine, scoring, failure isolation
 scripts/                 frontier, claim-next, review-submit, review-verdict, verify-review-flow, session-boot, append-decision, debug-log
-companions/              grill, research, to-spec, to-tickets, implement, review, beadfinder-debug
+companions/              beadfinder-grill, beadfinder-research, beadfinder-to-spec, beadfinder-to-tickets, beadfinder-implement, beadfinder-review, beadfinder-debug
 agents/                  harness-neutral persona contracts
 adapters/                OpenCode agents + plugin; Oh My Pi agents + extensions
 docs/                    hook behavior + implementer plan
