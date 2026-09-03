@@ -12,9 +12,9 @@ Beadfinder breaks down complex software projects whose destination is known but 
 
 ## Core Rules
 
-1. **Plan, Do Not Build**: Every planning bead represents an architectural decision, technical uncertainty, or spike—never a slice of production code.
-2. **Exhaustive Decision Mapping**: Actively probe the **10 Architectural Pillars**. Never artificially restrict the initial chart to 3–5 items; map every non-trivial decision.
-3. **Strict Phase Isolation**:
+1. **Do Plan, Do Not Build**: Every planning bead represents an architectural decision, technical uncertainty, or spike—never a slice of production code.
+2. **Do Exhaustive Decision Mapping**: Actively probe the **10 Architectural Pillars**. Never artificially restrict the initial chart to 3–5 items; map every non-trivial decision.
+3. **Do Practice Strict Phase Isolation**:
     - Planning beads: `--label phase:plan`
     - Build beads: `--label phase:implement` (+ persona label `implementation`)
     - Submitted beads: `--label phase:review` (+ persona label `review`) — applied only by `scripts/review-submit.sh`
@@ -30,7 +30,7 @@ Beadfinder breaks down complex software projects whose destination is known but 
 ## The 10 Architectural Decision Pillars
 
 When charting a new system, feature, or refactor, systematically generate decision beads across all 10 pillars:
-[Architectural Decision Pillars - Reference](references/architectural-pillars.md)
+[Reference: Architectural Decision Pillars](references/architectural-pillars.md)
 
 ---
 
