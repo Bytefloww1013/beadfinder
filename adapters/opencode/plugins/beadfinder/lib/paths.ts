@@ -98,6 +98,7 @@ export function personaWall(cwd: string, persona: Persona, path: string): string
   switch (persona) {
     case "wayfinder":
     case "product":
+    case "research":
       if (product) return `${persona} may not edit product files (${path}).`;
       return "";
     case "architect":

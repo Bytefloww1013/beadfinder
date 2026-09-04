@@ -19,16 +19,31 @@ bd create "Destination: Ship rate limiting" -t epic -p 1 \
   -l "beadfinder:destination" --json
 
 bd create "Plan: key + algorithm" -t epic -p 1 \
-  --parent <dest-id> -l "beadfinder:slice,phase:wayfind" --json
+  --parent <dest-id> --no-inherit-labels -l "beadfinder:slice,phase:plan" --json
 
 bd create "Grill: per-user or per-IP" -t task -p 1 \
-  --parent <plan-id> \
-  -l "beadfinder:grill,phase:wayfind,product,hitl" --json
+  --parent <plan-id> --no-inherit-labels \
+  -l "beadfinder:grill,phase:plan,wayfind,product,hitl" --json
+
+bd create "Research: <requirement question>" -t task -p 1 \
+  --parent <requirements-slice-id> --no-inherit-labels \
+  -l "phase:requirements,research,afk" --json
+
+bd create "Grill: <requirement question>" -t task -p 1 \
+  --parent <requirements-slice-id> --no-inherit-labels \
+  -l "beadfinder:grill,phase:requirements,product,hitl" --json
+
+bd create "Design: <ticket title>" -t task -p 1 \
+  --parent <design-slice-id> --no-inherit-labels \
+  -l "phase:design,architect" --json
 
 bd dep add <blocked> <blocker> --type blocks
 bd dep add <impl-slice> <plan-slice> --type related
-bd create "Found X" -t bug -p 1 --deps discovered-from:<current> --json
+bd create "Found X" -t bug -p 1 --deps discovered-from:<current> \
+  --no-inherit-labels -l "phase:plan,wayfind" --json
 ```
+
+Fog plumbing (see `ARCHITECTURE.md`): a design hole discovered mid-build gets `needs-design` and stops; a missing requirement found in design becomes a `phase:requirements` bead.
 
 ## Frontier and claim
 

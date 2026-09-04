@@ -4,7 +4,7 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: claim-next.sh --parent <id> --persona <wayfinder|architect|implementer|reviewer|product> [--label extra]" >&2
+  echo "usage: claim-next.sh --parent <id> --persona <wayfinder|research|architect|implementer|reviewer|product> [--label extra]" >&2
   exit 1
 }
 
@@ -30,8 +30,9 @@ if ! command -v bd >/dev/null 2>&1; then
 fi
 
 case "$PERSONA" in
-  wayfinder) ROLE_LABEL="wayfinder" ;;
-  architect) ROLE_LABEL="architecture" ;;
+  wayfinder) ROLE_LABEL="wayfind" ;;
+  research) ROLE_LABEL="research" ;;
+  architect) ROLE_LABEL="architect" ;;
   implementer) ROLE_LABEL="implementation" ;;
   reviewer) ROLE_LABEL="review" ;;
   product) ROLE_LABEL="product" ;;
@@ -40,7 +41,7 @@ esac
 
 args=(ready --parent "$PARENT" --label "$ROLE_LABEL" --unassigned --claim --limit 1 --json)
 if [[ -n "$EXTRA_LABEL" ]]; then
-  args=(ready --parent "$PARENT" --label "$ROLE_LABEL" --label "$EXTRA_LABEL" --unassigned --claim --limit 1 --json)
+  args+=(--label "$EXTRA_LABEL")
 fi
 
 out="$(bd "${args[@]}")" || {

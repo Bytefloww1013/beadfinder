@@ -1,13 +1,13 @@
 ---
 name: beadfinder-to-tickets
-description: Decomposes a settled architectural specification (SPEC.md) into 15–40+ fine-grained, tracer-bullet implementation beads with strict sequential DAG blocking chains in Beads (bd). Trigger with /beadfinder-to-tickets.
+description: Decomposes a settled SPEC.md + ARCHITECTURE.md + IMPLEMENTATION.md into 15–40+ fine-grained, tracer-bullet implementation beads with strict sequential DAG blocking chains in Beads (bd). Runs at the end of the Design stage. Trigger with /beadfinder-to-tickets.
 metadata:
-  version: "0.5.0"
+  version: "0.7.0"
 ---
 
 # Beadfinder: Slicing Engine (`to-tickets`)
 
-Converts a completed architectural specification (`SPEC.md`) into a large graph of small, atomic, tracer-bullet implementation tickets.
+Consumes settled SPEC.md, ARCHITECTURE.md, and IMPLEMENTATION.md and converts them into a large graph of small, atomic, tracer-bullet implementation tickets. The ticket DAG is the last design artifact (T4 in ARCHITECTURE.md), cut at the end of the `phase:design` stage.
 
 ## The Single-Context-Window Rule
 
@@ -48,6 +48,7 @@ The `beadfinder:slice` label is what `session-boot.sh` lists on later sessions:
 ```bash
 bd create "Implement: <Feature Name>" -t epic -p 1 \
   --label beadfinder:slice --label phase:implement \
+  --no-inherit-labels \
   -d "Implementation graph derived from Plan Epic <plan-epic-id> and SPEC.md."
 ```
 
@@ -56,7 +57,8 @@ For each atomic slice, create a bead with the following fields:
 
 ```bash
 bd create "<Action Verb> <Precise Scope>" -t task -p 1 \
-  --parent <impl-epic-id> --label phase:implement --label implementation \
+  --parent <impl-epic-id> --no-inherit-labels \
+  --label phase:implement --label implementation \
   -d "Target Files:
 - <file-path-1>
 - <file-path-2>
@@ -75,12 +77,14 @@ Acceptance Criteria:
 - [ ] Typecheck passes without errors"
 ```
 
-The `implementation` persona label is what `claim-next.sh --persona implementer` filters on; every build bead MUST carry it.
+The `implementation` persona label is what `claim-next.sh --persona implementer` filters on; every build bead MUST carry it. Labels are explicit, never inherited — `--no-inherit-labels` keeps parent-epic labels off build beads.
 
 ### 3. Review is per-bead
 Every build bead cycles the phase pipeline (see ARCHITECTURE.md): the implementer submits it with `scripts/review-submit.sh`, the reviewer closes it on a passing review or fails it back for rework. No separate review ticket is created.
 
 Build beads carry the `implementation` persona label; the `review` label is applied by the handoff script when the bead enters the review phase, not at creation.
+
+Implementers may request emergent tickets via `--deps discovered-from:<current-id>`, but only the wayfinder runs this skill to slice them; never re-slice settled tickets.
 
 ### 4. Chain Blockers
 Chain `blocks` **only where B cannot start before A** (e.g. schema → types that use it). Independent tasks stay parallel — do not serialize the whole slice into a linked list:

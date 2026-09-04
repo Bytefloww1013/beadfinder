@@ -1,6 +1,6 @@
 # Review rubric
 
-Deterministic scoring for the `phase:review` gauntlet (`ARCHITECTURE.md` §3–4). Reviewer
+Deterministic scoring for the `phase:review` gauntlet (`ARCHITECTURE.md` §7). Reviewer
 skills and agents cite this file, not personal judgment: same diff, same scores (±1).
 
 ## Dimensions

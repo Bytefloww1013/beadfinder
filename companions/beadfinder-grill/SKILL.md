@@ -2,12 +2,14 @@
 name: beadfinder-grill
 description: Socratic trade-off interrogation and architectural grilling engine. Resolves beadfinder:grill decision beads by evaluating concrete options, surfacing edge cases, and locking decisions into Beads memory. Trigger with /beadfinder-grill or when working a grilling bead.
 metadata:
-  version: "0.5.0"
+  version: "0.7.0"
 ---
 
 # Beadfinder: Socratic Decision Grilling
 
 Performs deep Socratic trade-off interrogation on an active decision bead. It forces rigorous evaluation of options, identifies edge cases, and records the final architectural choice.
+
+Grilling serves the plan, requirements, and design stages — trade-offs, requirement clarifications, and design choices all use the same structured options format.
 
 ## Core Rules
 
@@ -65,7 +67,7 @@ Which option aligns best with your goals, or should we refine the parameters?
 Once alignment is reached:
 1. Close the bead:
    ```bash
-   bd close <bead-id> "Resolution: [Option chosen and brief justification]"
+   bd close <bead-id> --reason "Resolution: [Option chosen and brief justification]"
    ```
 2. Store durable architectural memory:
    ```bash
@@ -74,9 +76,11 @@ Once alignment is reached:
 3. Check for emergent questions. If the choice creates new dependencies, immediately create child beads:
    ```bash
    bd create "Decision: [Follow-up question]" --parent <map-epic-id> \
-     --label phase:plan --label beadfinder:grill --label product --label hitl \
+     --no-inherit-labels \
+     --label phase:plan --label wayfind --label beadfinder:grill --label product --label hitl \
      --deps discovered-from:<bead-id>
    ```
+   Use the CURRENT stage's label (`phase:plan`, `phase:requirements`, or `phase:design`) so fog stays in the stage where it was found. Non-plan stages: requirements fog takes the human-question set (`beadfinder:grill,phase:requirements,product,hitl`, per the beads-ops.md requirements question example) for human questions, or the requirements research set (`phase:requirements,research,afk`) for empirical questions; design fog takes `phase:design,architect`.
 4. Append the decision to the map epic's "Decisions so far" bus. Scripts live in the installed `beadfinder` skill's `scripts/` directory:
    ```bash
    python3 <beadfinder-skill>/scripts/append-decision.py --epic <map-epic-id> \

@@ -1,0 +1,86 @@
+{
+  "version": "0.7.0",
+  "updated": "2026-09-03T20:05:00Z",
+  "round": 4,
+  "pass_bar": "all three rubric dimensions >= 8 (references/review-rubric.md; now literally enforced by scripts/review-verdict.sh --pass)",
+  "modules": {
+    "scripts": {
+      "scores": { "quality": 9, "correctness": 9, "pillars": 9 },
+      "status": "pass",
+      "beads": ["agent-workflow-change-cny.4", "agent-workflow-change-cny.10"],
+      "notes": "scratch-store smoke test 12 assertions; pass-reason format AND >=8 threshold enforced; remaining nit: unbounded 999/10 accepted (review-verdict.sh:85), ride next scripts bead"
+    },
+    "references": {
+      "scores": { "quality": 9, "correctness": 9, "pillars": 9 },
+      "status": "pass",
+      "bead": "agent-workflow-change-cny.5",
+      "notes": "requirements question example byte-identical to cited companion tuple; plan grill example carries wayfind; DAG example matches its own prose"
+    },
+    "companions": {
+      "scores": { "quality": 8, "correctness": 8, "pillars": 9 },
+      "status": "pass",
+      "bead": "agent-workflow-change-cny.6",
+      "notes": "to-spec single-sourced at requirements exit (G2 citation), non-vacuous gate, interface-level boundary line; polish nits applied post-pass"
+    },
+    "agents": {
+      "scores": { "quality": 8, "correctness": 8, "pillars": 8 },
+      "status": "pass",
+      "bead": "agent-workflow-change-cny.7",
+      "notes": "reviewer fail clause single-post with --reason; research covers plan+requirements+design; plan-stage architect spawn + close --reason added post-pass"
+    },
+    "adapters": {
+      "scores": { "quality": 8, "correctness": 8, "pillars": 8 },
+      "status": "pass",
+      "bead": "agent-workflow-change-cny.7",
+      "notes": "phase-gate widened (v0.7 + legacy) both policy.ts; ohmypi st.mode written (yield-on-stop live); research persona wired end-to-end incl. allowlists + agent mirrors (all three research descriptions byte-consistent); extractFirstId tightened; bun 33/33; known trade: ohmypi lib duplicates harness-independent helpers, no ohmypi test suite"
+    },
+    "root": {
+      "scores": { "quality": 8, "correctness": 8, "pillars": 8 },
+      "status": "pass",
+      "bead": "agent-workflow-change-cny.8",
+      "notes": "positional bd close eliminated; destination-epic finale three-way consistent (bd comment, never close); diagram/G-rows/rules 1-9 coherent; install.sh dead AGENTS.md.snippet echo removed; SKILL rule-4 named-claim carve-out stated"
+    }
+  },
+  "weakest_module": null,
+  "final_gate": {
+    "overall": 8,
+    "critic": "whole-project critic (ses_f97468717ffeeAG6VRU9OY1zlN)",
+    "verdict": "The machine is real and coherent — zero vocabulary conflicts across all five layers, both test suites green, every round-1 major verified fixed. 8 not 9 because: STATUS.json was stale at review time (updated since), one of three research-agent copies had drifted (fixed since), and the >=8 pass bar was prose-only (enforced since — cny.10).",
+    "post_gate_fixes": [
+      "docs/STATUS.json refreshed with rounds 1-4 (this file)",
+      "adapters research descriptions aligned (opencode + ohmypi mirrors)",
+      "rubric >=8 threshold enforced in review-verdict.sh + smoke assertion (cny.10, 9/9/9)",
+      "install.sh AGENTS.md.snippet dead echo removed; SKILL.md rule-4 carve-out; README phrasing; ARCHITECTURE.md diagram box"
+    ],
+    "residual_nits": [
+      "review-verdict.sh accepts unbounded scores (999/10) — bounded-below only",
+      "ARCHITECTURE.md §5 could state explicitly that the >=8 bar lives in the close-guard + verdict script",
+      "beadfinder-debug companion remains 0.5.0 (untouched by design)"
+    ]
+  },
+  "judges": [
+    {
+      "judge": "blind judge 1 (ses_f973d83afffeETniYcKTQZKrfn)",
+      "dryrun_a_requirements_phase": 8,
+      "dryrun_b_build_review_loop": 9,
+      "defects_found": "A: count drift between prose and filed beads (fixed post-judgment); B: elided re-claim/resubmit commands (excerpt compression)"
+    },
+    {
+      "judge": "blind judge 2 (ses_f9733092dffeKF0et9QtgTH1Bw)",
+      "dryrun_a_requirements_phase": 8,
+      "dryrun_b_build_review_loop": 9,
+      "defects_found": "A: two elided steps to improvisation, remember message uses non-pillar tag, question-bead title prefix differs from template; B: round-2 evidence narrated without exact command citation; no label/vocabulary contradictions in either transcript"
+    }
+  ],
+  "history": [
+    { "round": 1, "result": "FAIL — all modules 6-8 range; 3 critics; key finds: positional bd close hook-blocked, dead-code phase gates, live-store smoke test, fabricated citation risk, wayfinder allowlists could not spawn research" },
+    { "round": 2, "result": "FAIL — scripts 7/8/8 (vacuous assertion, threshold not enforced), companions 8/8/7 (citation not-yet-true, stale to-tickets claim), agents PASS 8/8/8, adapters+root PASS 8/8/8" },
+    { "round": 3, "result": "PASS — scripts+references 9/9/9, companions 8/8/9, agents 8/8/8 (stale round-2 major conceded by critic); polish nits applied" },
+    { "round": 4, "result": "FINAL GATE 8/10 + post-gate fixes (STATUS.json refresh, research mirror alignment, >=8 threshold enforcement cny.10 9/9/9, install/skill nits)" }
+  ],
+  "process_notes": [
+    "Bookkeeping gap, on the record: after critic round 2 the orchestrator skipped the T3 fail-back and let builders fix beads already in phase:review state; the state machine landed correctly but the fail verdicts were not posted as comments.",
+    "Builders cny.5 closed their own bead twice without a review pass; reopened and closed properly through review-verdict both times.",
+    "The pack's own hooks blocked this overhaul 5 times (hitl-affinity x3 on orchestrator spawn prompts containing label literals; spawn-contract x2 on judge prompts missing contract tokens) — each block was a real convention the prompts had to satisfy, and one (label inheritance stranding children) became decision #13 in IMPLEMENTATION.md."
+  ]
+}

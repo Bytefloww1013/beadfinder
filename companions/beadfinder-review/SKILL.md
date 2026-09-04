@@ -2,7 +2,7 @@
 name: beadfinder-review
 description: Scores and closes implementation beads. Claims a submitted build bead (label phase:review) from the review queue, verifies evidence against the ticket's verification command, scores Quality/Correctness/Pillar Adherence 1–10, and closes on pass or fails it back to the implementer. Trigger with /beadfinder-review.
 metadata:
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # Beadfinder: Review Worker

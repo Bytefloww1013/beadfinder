@@ -6,6 +6,7 @@ export type Persona =
   | "implementer"
   | "reviewer"
   | "product"
+  | "research"
   | "unknown";
 
 export type SessionState = {

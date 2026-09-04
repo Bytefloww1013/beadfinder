@@ -259,7 +259,7 @@ async function handleToolBefore(
       throwBlock(
         cwd,
         "spawn-contract",
-        "Spawn prompt must include ticket title, id, parent slice id, ADR gists, “one ticket only”, and “claim before work”.",
+        "Spawn prompt must include ticket title, id, parent slice id, decision gists, “one ticket only”, and “claim before work”.",
       );
     }
   }
@@ -318,14 +318,14 @@ async function handleToolBefore(
 
   if (sub === "create") {
     const labels = labelBlob(bd);
-    if (/phase:execute|beadfinder:build/.test(labels)) {
+    if (/phase:(execute|implement)|beadfinder:build/.test(labels)) {
       const parent = flagValue(bd, "--parent") || loadState(cwd, sessionID).parent;
       if (parent) {
         const openKids = await runBd(cwd, ["list", "--parent", parent, "--status", "open", "--json"]);
         const kids = asIssues(openKids.json).filter((i) => !isClosedStatus(i.status));
         const parentIssue = await showIssue(cwd, parent);
         const parentLabels = parentIssue ? labelsOf(parentIssue).join(",") : "";
-        if (/phase:wayfind/.test(parentLabels) && kids.length) {
+        if (/phase:(wayfind|plan)/.test(parentLabels) && kids.length) {
           throwBlock(
             cwd,
             "phase-gate",
