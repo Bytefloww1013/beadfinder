@@ -155,6 +155,38 @@ describe("OpenCode policy hooks", () => {
     }
   });
 
+  test("reviewer close with a score below the pass bar is rejected", async () => {
+    const st = loadState(dir, sessionID);
+    st.persona = "reviewer";
+    saveState(dir, sessionID, st);
+    fakeIssue = { id: "bf-9", status: "open", issue_type: "task", labels: ["phase:review", "review"] };
+    const spy = mockBdShow();
+    try {
+      await expect(
+        before("bash", { command: 'bd close bf-9 --reason "Review PASS: quality 7/10, correctness 9/10, pillars 9/10"' }),
+      ).rejects.toThrow(/\[beadfinder:bd-close-guard\] Scores below pass bar \(>= 8\): quality 7\/10/);
+    } finally {
+      fakeIssue = null;
+      spy.mockRestore();
+    }
+  });
+
+  test("reviewer close with an out-of-bounds score is rejected", async () => {
+    const st = loadState(dir, sessionID);
+    st.persona = "reviewer";
+    saveState(dir, sessionID, st);
+    fakeIssue = { id: "bf-9", status: "open", issue_type: "task", labels: ["phase:review", "review"] };
+    const spy = mockBdShow();
+    try {
+      await expect(
+        before("bash", { command: 'bd close bf-9 --reason "Review PASS: quality 999/10, correctness 9/10, pillars 9/10"' }),
+      ).rejects.toThrow(/Rubric scores out of bounds/);
+    } finally {
+      fakeIssue = null;
+      spy.mockRestore();
+    }
+  });
+
   test("reviewer may close a non-review bead without scores", async () => {
     const st = loadState(dir, sessionID);
     st.persona = "reviewer";

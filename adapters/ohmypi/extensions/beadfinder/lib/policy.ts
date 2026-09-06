@@ -59,6 +59,18 @@ function warn(cwd: string, hook: string, reason: string, details?: unknown) {
   advisor(cwd, hook, "warning", reason, details);
 }
 
+function parseRubricScores(text: string): { quality: number; correctness: number; pillars: number } | null {
+  const parseDim = (pat: string): number | null => {
+    const m = text.match(new RegExp(`(^|[^a-zA-Z0-9])${pat}[^0-9\\r\\n]*([0-9]+)\\s*\\/\\s*10`, "i"));
+    return m ? parseInt(m[2], 10) : null;
+  };
+  const quality = parseDim("quality");
+  const correctness = parseDim("correctness");
+  const pillars = parseDim("pillars?");
+  if (quality === null || correctness === null || pillars === null) return null;
+  return { quality, correctness, pillars };
+}
+
 async function liveSnapshot(pi: HookAPI): Promise<string> {
   const dest = await listLive(pi, ["list", "--label", "beadfinder:destination", "--type", "epic"]);
   const slices = await listLive(pi, ["list", "--label", "beadfinder:slice"]);
@@ -351,13 +363,22 @@ export function createBeadfinder(pi: HookAPI): void {
         }
         if (st.persona === "reviewer" && inReview) {
           const reason = flagValue(bd, "--reason") || flagValue(bd, "-r");
-          const scores = reason.match(/(\d+)\s*\/\s*10/g) || [];
-          if (!/Review PASS/i.test(reason) || scores.length < 3) {
+          const parsed = parseRubricScores(reason);
+          if (!/Review PASS/i.test(reason) || !parsed) {
             return block(
               cwd,
               "bd-close-guard",
               "Reviewer close reason must record all three scores: quality, correctness, pillars (e.g. Review PASS: quality 9/10, correctness 8/10, pillars 9/10.).",
             );
+          }
+          const dims = ["quality", "correctness", "pillars"] as const;
+          const oob = dims.filter((d) => parsed[d] < 1 || parsed[d] > 10).map((d) => `${d} ${parsed[d]}/10`);
+          if (oob.length) {
+            return block(cwd, "bd-close-guard", `Rubric scores out of bounds [1-10]: ${oob.join(", ")}`);
+          }
+          const low = dims.filter((d) => parsed[d] < 8).map((d) => `${d} ${parsed[d]}/10`);
+          if (low.length) {
+            return block(cwd, "bd-close-guard", `Scores below pass bar (>= 8): ${low.join(", ")}`);
           }
         }
         if (issue && (issue.type === "epic" || issue.issue_type === "epic" || /epic/i.test(String(issue.issue_type || issue.type || "")))) {

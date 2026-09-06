@@ -529,3 +529,49 @@ When assigning an implementation agent to execute these repairs, structure the m
 
 ---
 *Report compiled and verified against commit `286df13` in `/home/josh/.treehouse/beadfinder-18fb33/2/beadfinder`.*
+
+---
+
+# ADDENDUM — Post-Fix Resolution Audit (2026-09-06)
+
+A team of implementer and reviewer agents executed the remediation roadmap in §7. Every fix was independently verified by adversarial reviewers (all scores ≥ 8/10 per `references/review-rubric.md`) and by re-running the full verification suite.
+
+## Verification gates (all green)
+
+| Gate | Result |
+|---|---|
+| `bash scripts/verify-review-flow.sh` | **PASS — 15 assertions** (was 12; +3 out-of-bounds rejections: 999/10, 11/10, 0/10) |
+| `bun test adapters/cline/plugins/beadfinder/lib/` | **40 pass, 0 fail** (was 38; +2 close-guard rejection tests) |
+| `bun test adapters/opencode/plugins/beadfinder/lib/` | **36 pass, 0 fail** (was 33; +1 diff-header test, +2 close-guard tests) |
+| `python3 -m json.tool docs/STATUS.json` | valid |
+
+## Critique-by-critique resolution status
+
+| # | Original Critique | Status | Evidence |
+|---|---|---|---|
+| 1 | Unbounded scores (`999/10`) accepted by `scripts/review-verdict.sh` | **RESOLVED** | Bounds [1,10] + pass bar ≥ 8 enforced; exact dimension-token regexes (`(^|[^a-zA-Z0-9])<dim>…/10`); 3 new assertions in `scripts/verify-review-flow.sh` |
+| 2 | `bd close` hook policy allowed any 3 `N/10` tokens (even `quality 2/10`) | **RESOLVED** | `parseRubricScores()` helper added to `policy.ts` in all three adapters (cline:80, opencode:77, ohmypi:59); close-guard rejects missing dims, out-of-bounds, and below-bar scores; tested in both suites |
+| 3 | OpenCode/OMP reviewer prompts caused `review-verdict.sh --fail` to crash (`empty --reason`) and invited double-posting | **RESOLVED** | All four adapter prompts (`opencode`, `ohmypi`, `cline` `.md` + `.yaml`) aligned to canonical `agents/reviewer.md` contract: `--fail --reason "<scores + ranked issues>"`; `grep "post ranked issues"` = 0 hits |
+| 4 | Unified-diff header parser missing in OpenCode/OMP `tools.ts` | **RESOLVED** | Fallback added to `adapters/opencode/.../tools.ts`; full `applyPatchPaths` added to `adapters/ohmypi/.../tools.ts` (it never had one); new dedupe test in opencode suite |
+| 5 | `docs/harness-ohmyi.md` filename typo | **RESOLVED** | `git mv docs/harness-ohmyi.md docs/harness-ohmypi.md`; zero dangling references (the sole remaining string is the rename record in `docs/STATUS.json` `post_review_fixes`) |
+| 6 | `beadfinder-debug` companion stuck at 0.5.0 | **RESOLVED** | `companions/beadfinder-debug/SKILL.md:5` → `version: "0.7.0"` |
+| 7 | Stale nit ledger in `docs/STATUS.json` | **RESOLVED** | Fixed nits pruned from `modules.scripts.notes` and `final_gate.residual_nits`; `post_review_fixes[]` added; all other fields byte-identical (verified programmatically) |
+| 8 | OMP adapter lacks per-session state isolation (`state.ts` flat store) | **OPEN — not ticketed** | Architectural change deferred; requires OMP session-ID plumbing in `HookAPI` |
+| 9 | Three-fork duplication of adapter `lib/` code | **OPEN — not ticketed** | Parity syncs reduce drift, but the shared `core/lib/` consolidation (§3.1, Remediation 5) remains future work |
+| 10 | Tokenizer/flag-parsing fragility in `tools.ts` | **MITIGATED, partially open** | Score parsing is now boundary-anchored at all call sites; the general tokenizer remains as-is |
+| 11 | `install.sh --omp --global` path (`~/.omp/agent`) | **OPEN — needs upstream confirmation** | Note: `README.md:51` documents `~/.omp/agent` for `--global`, so code and docs agree; the critique requires verification against a live OMP build |
+| 12 | OMP adapter has no test suite | **OPEN — not ticketed** | Pre-existing gap; new OMP logic verified by manual function-level review only |
+
+## Review verdicts (independent QA agents)
+
+| Ticket | Quality | Correctness | Pillars | Verdict |
+|---|---|---|---|---|
+| 1 — verdict script bounds | 9 | 9 | 9 | **PASS** |
+| 2 — close-guard enforcement (3 adapters) | 9 | 10 | 9 | **PASS** |
+| 3 — patch-path extraction sync | 8 | 9 | 8 | **PASS** |
+| 4 — reviewer prompt alignment | 9 | 10 | 9 | **PASS** |
+| 5 — docs housekeeping | 9 | 10 | 9 | **PASS** |
+
+Reviewer nits addressed post-review: the "OpenCode" copy-paste doc comment in `adapters/ohmypi/extensions/beadfinder/lib/tools.ts:40` was corrected to note it is a parity copy. Remaining reviewer nits (accepted, non-blocking): OMP guard ships without automated tests (see #12); in mixed out-of-bounds + below-bar reasons the verdict script reports only the out-of-bounds dims on the first attempt.
+
+**Conclusion**: All five ticketed critiques are fixed and independently verified; the three open items (#8, #9, #12) are the larger architectural consolidations that remain on the roadmap for a future overhaul bead.

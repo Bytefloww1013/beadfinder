@@ -37,6 +37,26 @@ export function inputPath(input: Record<string, unknown>): string {
   return "";
 }
 
+/** Paths listed in an apply_patch payload. Parity copy of the OpenCode/Cline helper. */
+export function applyPatchPaths(patchText: string): string[] {
+  if (!patchText) return [];
+  const out: string[] = [];
+  const re = /^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$/gm;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(patchText))) {
+    const p = (m[1] || "").trim();
+    if (p) out.push(p);
+  }
+  if (out.length === 0) {
+    const diffRe = /^(?:---|\+\+\+)\s+[ab]\/(.+)$/gm;
+    while ((m = diffRe.exec(patchText))) {
+      const p = (m[1] || "").trim();
+      if (p && !out.includes(p)) out.push(p);
+    }
+  }
+  return out;
+}
+
 export function globSearchPaths(input: Record<string, unknown>): string[] {
   const out: string[] = [];
   const seen = new Set<string>();

@@ -1,6 +1,6 @@
 {
   "version": "0.7.0",
-  "updated": "2026-09-03T20:05:00Z",
+  "updated": "2026-09-06T07:30:00Z",
   "round": 4,
   "pass_bar": "all three rubric dimensions >= 8 (references/review-rubric.md; now literally enforced by scripts/review-verdict.sh --pass)",
   "modules": {
@@ -8,7 +8,7 @@
       "scores": { "quality": 9, "correctness": 9, "pillars": 9 },
       "status": "pass",
       "beads": ["agent-workflow-change-cny.4", "agent-workflow-change-cny.10"],
-      "notes": "scratch-store smoke test 12 assertions; pass-reason format AND >=8 threshold enforced; remaining nit: unbounded 999/10 accepted (review-verdict.sh:85), ride next scripts bead"
+      "notes": "scratch-store smoke test 12 assertions; pass-reason format AND >=8 threshold enforced"
     },
     "references": {
       "scores": { "quality": 9, "correctness": 9, "pillars": 9 },
@@ -58,11 +58,17 @@
       "install.sh AGENTS.md.snippet dead echo removed; SKILL.md rule-4 carve-out; README phrasing; ARCHITECTURE.md diagram box"
     ],
     "residual_nits": [
-      "review-verdict.sh accepts unbounded scores (999/10) — bounded-below only",
-      "ARCHITECTURE.md §5 could state explicitly that the >=8 bar lives in the close-guard + verdict script",
-      "beadfinder-debug companion remains 0.5.0 (untouched by design)"
+      "ARCHITECTURE.md §5 could state explicitly that the >=8 bar lives in the close-guard + verdict script"
     ]
   },
+  "post_review_fixes": [
+    "rubric score bounds [1,10] enforced in scripts/review-verdict.sh + verify-review-flow.sh (15 assertions)",
+    "parseRubricScores bounds+threshold enforcement in bd-close-guard of all three adapters",
+    "unified-diff header path extraction synced to opencode/ohmypi tools.ts",
+    "reviewer fail prompts aligned to --fail --reason across adapters",
+    "docs/harness-ohmyi.md renamed to docs/harness-ohmypi.md",
+    "beadfinder-debug SKILL.md version bumped to 0.7.0"
+  ],
   "judges": [
     {
       "judge": "blind judge 1 (ses_f973d83afffeETniYcKTQZKrfn)",

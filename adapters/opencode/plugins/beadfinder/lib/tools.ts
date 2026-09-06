@@ -52,6 +52,13 @@ export function applyPatchPaths(patchText: string): string[] {
     const p = (m[1] || "").trim();
     if (p) out.push(p);
   }
+  if (out.length === 0) {
+    const diffRe = /^(?:---|\+\+\+)\s+[ab]\/(.+)$/gm;
+    while ((m = diffRe.exec(patchText))) {
+      const p = (m[1] || "").trim();
+      if (p && !out.includes(p)) out.push(p);
+    }
+  }
   return out;
 }
 

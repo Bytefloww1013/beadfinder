@@ -56,6 +56,17 @@ describe("apply_patch paths", () => {
     expect(toolPaths("apply_patch", { patchText: "*** Update File: src/foo.ts\n" })).toEqual(["src/foo.ts"]);
     expect(toolPaths("write", { filePath: "src/bar.ts" })).toEqual(["src/bar.ts"]);
   });
+
+  test("falls back to unified-diff headers when no markers are present", () => {
+    const patch = [
+      "--- a/src/foo.ts",
+      "+++ b/src/foo.ts",
+      "@@ -1 +1 @@",
+      "-const x = 1",
+      "+const x = 2",
+    ].join("\n");
+    expect(toolPaths("apply_patch", { patchText: patch })).toEqual(["src/foo.ts"]);
+  });
 });
 
 describe("path walls", () => {

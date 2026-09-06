@@ -71,23 +71,31 @@ fi
 
 if [[ -n "$PASS" ]]; then
   if ! grep -qi "Review PASS" <<<"$REASON" \
-    || ! grep -qiE 'quality[^0-9]*[0-9]+/10' <<<"$REASON" \
-    || ! grep -qiE 'correctness[^0-9]*[0-9]+/10' <<<"$REASON" \
-    || ! grep -qiE 'pillars?[^0-9]*[0-9]+/10' <<<"$REASON"; then
+    || ! grep -qiE '(^|[^a-zA-Z0-9])quality[^0-9\r\n]*[0-9]+[[:space:]]*/[[:space:]]*10' <<<"$REASON" \
+    || ! grep -qiE '(^|[^a-zA-Z0-9])correctness[^0-9\r\n]*[0-9]+[[:space:]]*/[[:space:]]*10' <<<"$REASON" \
+    || ! grep -qiE '(^|[^a-zA-Z0-9])pillars?[^0-9\r\n]*[0-9]+[[:space:]]*/[[:space:]]*10' <<<"$REASON"; then
     echo '{"error":"--pass reason must contain \"Review PASS\" and the three rubric scores: quality N/10, correctness N/10, pillars N/10","id":"'"$ID"'"}' >&2
     exit 1
   fi
-  # Rubric pass bar: every score must be >= 8 (references/review-rubric.md).
+  # Rubric pass bar: every score must be bounded [1, 10] and >= 8 (references/review-rubric.md).
   below=""
+  invalid=""
   for dim in quality correctness pillars; do
     pat="$dim"
     [[ "$dim" == "pillars" ]] && pat="pillars?"
-    val="$(grep -oiE "${pat}[^0-9]*[0-9]+" <<<"$REASON" | grep -oE '[0-9]+' | head -1)"
+    token="$(grep -oiE "(^|[^a-zA-Z0-9])${pat}[^0-9\r\n]*[0-9]+[[:space:]]*/[[:space:]]*10" <<<"$REASON" | head -1)"
+    val="$(grep -oE '[0-9]+[[:space:]]*/[[:space:]]*10' <<<"$token" | grep -oE '^[0-9]+' | head -1)"
     val=$((10#${val:-0}))
-    if [[ "$val" -lt 8 ]]; then
+    if [[ "$val" -lt 1 || "$val" -gt 10 ]]; then
+      invalid="${invalid:+$invalid, }$dim $val/10"
+    elif [[ "$val" -lt 8 ]]; then
       below="${below:+$below, }$dim $val/10"
     fi
   done
+  if [[ -n "$invalid" ]]; then
+    echo '{"error":"--pass rejected: rubric scores out of bounds [1-10]: '"$invalid"'","id":"'"$ID"'"}' >&2
+    exit 1
+  fi
   if [[ -n "$below" ]]; then
     echo '{"error":"--pass rejected: rubric scores below the pass bar (>= 8): '"$below"'","id":"'"$ID"'"}' >&2
     exit 1

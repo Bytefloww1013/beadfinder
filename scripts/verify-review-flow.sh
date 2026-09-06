@@ -108,6 +108,19 @@ if in_scratch bash "$SCRIPT_DIR/review-verdict.sh" "$BEAD" --pass --reason "Revi
   die "step g: review-verdict.sh --pass accepted a score below the rubric pass bar (>= 8)"
 fi
 ok
+# Rubric bounds: scores > 10 (e.g. 999/10, 11/10) or < 1 (e.g. 0/10) must be rejected.
+if in_scratch bash "$SCRIPT_DIR/review-verdict.sh" "$BEAD" --pass --reason "Review PASS: quality 999/10, correctness 9/10, pillars 9/10" >/dev/null 2>&1; then
+  die "step g: review-verdict.sh --pass accepted a score > 10 (999/10)"
+fi
+ok
+if in_scratch bash "$SCRIPT_DIR/review-verdict.sh" "$BEAD" --pass --reason "Review PASS: quality 11/10, correctness 9/10, pillars 9/10" >/dev/null 2>&1; then
+  die "step g: review-verdict.sh --pass accepted a score > 10 (11/10)"
+fi
+ok
+if in_scratch bash "$SCRIPT_DIR/review-verdict.sh" "$BEAD" --pass --reason "Review PASS: quality 0/10, correctness 9/10, pillars 9/10" >/dev/null 2>&1; then
+  die "step g: review-verdict.sh --pass accepted a score < 1 (0/10)"
+fi
+ok
 bead_json="$(show_bead "$BEAD")" || die "bd show failed for $BEAD"
 jq -e '(.status != "closed") and ((.labels // []) | contains(["phase:review"]))' >/dev/null <<<"$bead_json" \
   || die "step g: rejected --pass mutated the bead; got: $bead_json"
