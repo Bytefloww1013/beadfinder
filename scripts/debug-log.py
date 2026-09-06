@@ -17,7 +17,8 @@ def find_root(start: Path) -> Path:
     cur = start.resolve()
     for _ in range(12):
         if (
-            (cur / ".opencode").is_dir()
+            (cur / ".cline").is_dir()
+            or (cur / ".opencode").is_dir()
             or (cur / ".omp").is_dir()
             or (cur / ".beads").is_dir()
             or (cur / ".git").is_dir()
@@ -40,6 +41,8 @@ def main() -> int:
 
     root = find_root(Path.cwd())
     paths: list[Path] = []
+    if (root / ".cline").is_dir():
+        paths.append(root / ".cline" / "beadfinder-debug.log")
     if (root / ".opencode").is_dir():
         paths.append(root / ".opencode" / "beadfinder-debug.log")
     if (root / ".omp").is_dir():

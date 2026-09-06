@@ -30,28 +30,40 @@ bash install.sh --opencode
 # OpenCode, every project
 bash install.sh --opencode --global
 
+# Cline, this project
+bash install.sh --cline
+
+# Cline, every project
+bash install.sh --cline --global
+
 # Oh My Pi plus debug logging (writes <target>/.omp/beadfinder-debug.log)
 bash install.sh --omp --debug
 
 # OpenCode plus debug logging (writes <target>/.opencode/beadfinder-debug.log)
 bash install.sh --opencode --debug
+
+# Cline plus debug logging (writes <target>/.cline/beadfinder-debug.log)
+bash install.sh --cline --debug
 ```
 
 `install.sh` is checked in as a normal file (`100644`), so `./install.sh` can fail with permission denied. `bash install.sh` does not need the execute bit.
 
 `--omp` writes `.omp/skills` + `.omp/agents` + `.omp/extensions/beadfinder` (or `~/.omp/agent` with `--global`).
 `--opencode` writes `.opencode/skills` + `.opencode/agents` + `.opencode/plugins` + `.opencode/commands` (or `~/.config/opencode` with `--global`).
+`--cline` writes `.cline/skills` + `.cline/agents` + `.cline/plugins/beadfinder` (or `~/.cline` with `--global`).
 
 Then in the **target project** (the repo you will wayfind):
 
 1. `bd init` if `.beads` is missing.
 2. Start the `wayfinder` agent. It autoloads `beadfinder` and can spawn `architect`, `implementer`, `reviewer`, `research`, and `product`. In OpenCode, `/beadfinder` does this in one step: it starts the `wayfinder` agent in the current session and runs session boot.
 
-OMP installs a policy extension under `.omp/extensions/beadfinder/`. OpenCode installs a plugin at `.opencode/plugins/beadfinder.ts` (auto-loaded). Hook behavior: [docs/HOOKS.md](docs/HOOKS.md). Implementer notes: [docs/HOOKS-IMPLEMENTATION.md](docs/HOOKS-IMPLEMENTATION.md). Restart the harness after install so hooks load.
+OMP installs a policy extension under `.omp/extensions/beadfinder/`. OpenCode installs a plugin at `.opencode/plugins/beadfinder.ts` (auto-loaded). Cline installs a plugin under `.cline/plugins/beadfinder/`. Hook behavior: [docs/HOOKS.md](docs/HOOKS.md). Implementer notes: [docs/HOOKS-IMPLEMENTATION.md](docs/HOOKS-IMPLEMENTATION.md). Restart the harness after install so hooks load.
 
 Suggested Oh My Pi roles: wayfinder and architect `@plan`, implementer `@default`, reviewer `@review`.
 
 OpenCode agents ship pre-wired: `wayfinder` may `task` the five workers (`architect`, `implementer`, `reviewer`, `research`, `product`), and `reviewer` / `product` / `research` deny edits. The plugin enforces the same gates as the OMP extension (blocked tools, persona lock, yield-on-stop) via OpenCode events — see the event map in [docs/HOOKS.md](docs/HOOKS.md).
+
+Cline agents (`.md` and `.yaml`) define persona configurations for `wayfinder`, `architect`, `implementer`, `reviewer`, `research`, and `product`. The Cline plugin implements `beforeTool`, `afterTool`, `beforeRun`, and `afterRun` hooks to enforce the same policy invariants (environment protection, bare beads prevention, persona write walls, spawn contracts, and review close gates) — see [docs/harness-cline.md](docs/harness-cline.md).
 
 ## Layout
 
@@ -63,7 +75,7 @@ IMPLEMENTATION.md        locked decisions + pack tree
 scripts/                 frontier, claim-next, review-submit, review-verdict, verify-review-flow, session-boot, append-decision, debug-log
 companions/              beadfinder-grill, beadfinder-research, beadfinder-to-spec, beadfinder-to-tickets, beadfinder-implement, beadfinder-review, beadfinder-debug
 agents/                  harness-neutral persona contracts
-adapters/                OpenCode agents + plugin; Oh My Pi agents + extensions
+adapters/                OpenCode agents + plugin; Oh My Pi agents + extensions; Cline agents + plugin
 docs/                    hook behavior + implementer plan
 references/              review rubric, pillars, personas, ops
 third_party/

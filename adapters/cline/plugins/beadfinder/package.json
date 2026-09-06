@@ -1,0 +1,18 @@
+{
+  "name": "beadfinder",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "description": "Beadfinder policy plugin for Cline",
+  "main": "index.ts",
+  "cline": {
+    "plugins": [
+      {
+        "paths": [
+          "./index.ts"
+        ]
+      }
+    ]
+  }
+}
+

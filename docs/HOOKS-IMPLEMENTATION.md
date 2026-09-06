@@ -6,10 +6,11 @@ This is the working plan for agents changing the hook pack. Humans who only need
 
 - Policy for OMP lives in `adapters/ohmypi/extensions/beadfinder/`.
 - Policy for OpenCode lives in `adapters/opencode/plugins/` (`beadfinder.ts` + `beadfinder/lib`).
+- Policy for Cline lives in `adapters/cline/plugins/beadfinder/` (`package.json`, `index.ts`, `lib/`).
 - Debug logging is gated. Default install must not fill the debug log.
 - Do not import claude-protocol’s “user closes after merge” / worktree rules.
 - HITL stays label + ask in the parent. Hooks only stop it leaving the parent.
-- Keep the two packs behavior-compatible. Do not add an OpenCode-only gate without an OMP twin, or vice versa.
+- Keep all harness packs behavior-compatible. Do not add a harness-specific gate without twin gates in the others.
 
 ## Layout
 
@@ -29,9 +30,15 @@ adapters/opencode/plugins/
   beadfinder.ts     OpenCode plugin export (auto-loaded)
   beadfinder/lib/   same jobs as OMP lib; OpenCode events + apply_patch/task
 adapters/opencode/commands/beadfinder.md
+adapters/cline/
+  agents/           reviewer, implementer, product, research, architect, wayfinder (*.md + *.yaml)
+  plugins/beadfinder/
+    package.json    plugin manifest
+    index.ts        AgentPlugin export (hooks: beforeTool, afterTool, beforeRun, afterRun)
+    lib/            policy, tools, paths, fsutil, state, bd, log
 scripts/debug-log.py
 companions/beadfinder-debug/
-install.sh          --omp copies extension; --opencode copies plugin + commands; --debug copies debug skill
+install.sh          --omp copies extension; --opencode copies plugin + commands; --cline copies plugin + agents; --debug copies debug skill
 docs/HOOKS.md
 docs/HOOKS-IMPLEMENTATION.md
 ```
@@ -39,6 +46,8 @@ docs/HOOKS-IMPLEMENTATION.md
 OMP install target: `$ROOT/extensions/beadfinder/` where `$ROOT` is `.omp` or `~/.omp/agent`.
 
 OpenCode install target: `$ROOT/plugins/beadfinder.ts` + `$ROOT/plugins/beadfinder/lib/` where `$ROOT` is `.opencode` or `~/.config/opencode`. OpenCode's glob is `{plugin,plugins}/*.{ts,js}` — do not flatten `lib/*.ts` next to the entry.
+
+Cline install target: `$ROOT/plugins/beadfinder/` where `$ROOT` is `.cline` or `~/.cline`. Contains `package.json`, `index.ts`, and `lib/` (tests pruned).
 
 ## Runtime facts (do not fight these)
 
@@ -182,3 +191,29 @@ Smoke:
 3. `bd close <destination>` is blocked.
 4. Close a ticket, send a new message without mentioning it: injected snapshot must not list it as open.
 5. With `--debug`, `.opencode/beadfinder-debug.log` gets a JSON line on that close mismatch.
+
+## Cline runtime facts
+
+- Plugin signature: implements `AgentPlugin` with hooks `beforeTool`, `afterTool`, `beforeRun`, `afterRun` (`adapters/cline/plugins/beadfinder/index.ts`).
+- Block a tool by **throwing** `new Error("[beadfinder:<hook>] …")` from `beforeTool`.
+- `bd` is spawned with `child_process.spawn("bd", args, { cwd: directory })`. Always pass `--json` when parsing.
+- Persona comes from `input.persona` / `input.agent` in `beforeRun`, or `session-boot.sh --persona`.
+- State is `.cline/beadfinder/state.json`, keyed by session id.
+- Tool classification recognizes Cline/Claude tool names (`read_file`, `read_files`, `write`, `edit`, `editor`, `apply_patch`, `execute_command`, `run_commands`, `task`, `spawn_agent`, `start_subagent`, `subagent_run`, `search_codebase`).
+- Tests: `bun test adapters/cline/plugins/beadfinder/lib/policy.test.ts adapters/cline/plugins/beadfinder/lib/tools.test.ts adapters/cline/plugins/beadfinder/lib/bd.test.ts`.
+
+## Verify before claiming “Cline hooks work”
+
+From a throwaway project with `bd` installed:
+
+```bash
+bash /path/to/beadfinder/install.sh --cline --debug
+# restart cline so plugins load
+```
+
+Smoke:
+1. `read_files` or `read` on `.env` is blocked (`[beadfinder:env-protection]`).
+2. Reviewer `write` or `editor` to `src/foo.ts` is blocked.
+3. `bd close <destination>` is blocked.
+4. Close a ticket, start a turn without mentioning it: injected snapshot must not list it as open.
+5. With `--debug`, `.cline/beadfinder-debug.log` gets a JSON line on that close mismatch.

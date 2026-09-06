@@ -4,10 +4,11 @@ set -euo pipefail
 
 usage() {
   cat >&2 <<'EOF'
-usage: install.sh --omp|--opencode [--global] [--dest DIR] [--debug]
+usage: install.sh --omp|--opencode|--cline [--global] [--dest DIR] [--debug]
 
   --omp         Oh My Pi  (.omp/skills + .omp/agents + extensions)
   --opencode    OpenCode  (.opencode/skills + .opencode/agents + plugins + commands)
+  --cline       Cline     (.cline/skills + .cline/agents + plugins)
   --global      user-wide dirs instead of the current project
   --dest DIR    override the harness root (implies not --global)
   --debug       also install beadfinder-debug (hook log + status advisor)
@@ -17,6 +18,8 @@ Run from a clone of this pack, or via:
   bash /path/to/beadfinder/install.sh --omp --debug
   bash /path/to/beadfinder/install.sh --opencode
   bash /path/to/beadfinder/install.sh --opencode --debug
+  bash /path/to/beadfinder/install.sh --cline
+  bash /path/to/beadfinder/install.sh --cline --debug
 EOF
   exit 1
 }
@@ -30,6 +33,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --omp|--oh-my-pi|--ohmypi) HARNESS="omp" ;;
     --opencode) HARNESS="opencode" ;;
+    --cline) HARNESS="cline" ;;
     --global|-g) GLOBAL=1 ;;
     --dest)
       DEST_OVERRIDE="${2:-}"
@@ -58,6 +62,12 @@ elif [[ "$HARNESS" == "omp" ]]; then
     ROOT="${HOME}/.omp/agent"
   else
     ROOT="${PWD}/.omp"
+  fi
+elif [[ "$HARNESS" == "cline" ]]; then
+  if [[ "$GLOBAL" -eq 1 ]]; then
+    ROOT="${HOME}/.cline"
+  else
+    ROOT="${PWD}/.cline"
   fi
 else
   if [[ "$GLOBAL" -eq 1 ]]; then
@@ -120,6 +130,20 @@ if [[ "$HARNESS" == "omp" ]]; then
   echo "only $EXT/index.ts is the OMP entry; helpers stay in $EXT/lib/"
   echo "if hooks do not fire, set .omp/settings.json to:"
   echo '  { "extensions": [".omp/extensions/beadfinder"] }'
+elif [[ "$HARNESS" == "cline" ]]; then
+  cp "$PACK/adapters/cline/agents/"*.md "$AGENTS/"
+  cp "$PACK/adapters/cline/agents/"*.yaml "$AGENTS/"
+  PLUGIN_ROOT="$ROOT/plugins"
+  DEST_PLUGIN="$PLUGIN_ROOT/beadfinder"
+  mkdir -p "$DEST_PLUGIN"
+  rm -rf "$DEST_PLUGIN/lib"
+  cp "$PACK/adapters/cline/plugins/beadfinder/package.json" "$DEST_PLUGIN/"
+  cp "$PACK/adapters/cline/plugins/beadfinder/index.ts" "$DEST_PLUGIN/"
+  cp -R "$PACK/adapters/cline/plugins/beadfinder/lib" "$DEST_PLUGIN/lib"
+  find "$DEST_PLUGIN" -type f -name '*.test.ts' -delete 2>/dev/null || true
+  echo "plugin in  $DEST_PLUGIN"
+  echo "Cline loads plugins from .cline/plugins (or ~/.cline/plugins with --global)"
+  echo "kill switch: BEADFINDER_HOOKS=off"
 else
   cp "$PACK/adapters/opencode/agents/"*.md "$AGENTS/"
   # OpenCode auto-loads only {plugin,plugins}/*.{ts,js}. The entry must be a
@@ -149,7 +173,9 @@ fi
 echo "installed to $SKILLS"
 echo "agents in   $AGENTS"
 if [[ "$DEBUG" -eq 1 ]]; then
-  if [[ "$HARNESS" == "opencode" ]]; then
+  if [[ "$HARNESS" == "cline" ]]; then
+    echo "debug skill on; log file will be <target-repo>/.cline/beadfinder-debug.log"
+  elif [[ "$HARNESS" == "opencode" ]]; then
     echo "debug skill on; log file will be <target-repo>/.opencode/beadfinder-debug.log"
   else
     echo "debug skill on; log file will be <target-repo>/.omp/beadfinder-debug.log"

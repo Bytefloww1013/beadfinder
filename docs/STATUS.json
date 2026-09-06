@@ -34,6 +34,11 @@
       "bead": "agent-workflow-change-cny.7",
       "notes": "phase-gate widened (v0.7 + legacy) both policy.ts; ohmypi st.mode written (yield-on-stop live); research persona wired end-to-end incl. allowlists + agent mirrors (all three research descriptions byte-consistent); extractFirstId tightened; bun 33/33; known trade: ohmypi lib duplicates harness-independent helpers, no ohmypi test suite"
     },
+    "adapters/cline": {
+      "scores": { "quality": 9, "correctness": 9, "pillars": 9 },
+      "status": "pass",
+      "notes": "adapters/cline plugin (beforeTool/afterTool/beforeRun/afterRun) + agents (.md/.yaml) + install.sh integration; test suite 38/38 pass"
+    },
     "root": {
       "scores": { "quality": 8, "correctness": 8, "pillars": 8 },
       "status": "pass",

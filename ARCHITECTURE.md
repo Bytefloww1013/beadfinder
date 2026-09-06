@@ -149,6 +149,7 @@ integrator. The hook layer (`paths.ts personaWall`) encodes the same walls.
 | `agents/` | harness-neutral persona contracts (wayfinder, architect, implementer, reviewer, product) | architect | references/personas.md | harness-specific flags |
 | `adapters/opencode/` | OpenCode agents, plugin (hooks), /beadfinder command | implementation | lib/ shared state; mirrors agents/ semantics | companions/, scripts/ |
 | `adapters/ohmypi/` | Oh My Pi agents + extension (same hooks, OMP event API) | implementation | lib/ shared state; mirrors agents/ semantics | companions/, scripts/ |
+| `adapters/cline/` | Cline agents (.md/.yaml), policy plugin (hooks: beforeTool, afterTool, beforeRun, afterRun) | implementation | lib/ shared state; mirrors agents/ semantics | companions/, scripts/ |
 | `docs/` | human + hook documentation (HOOKS.md, HOOKS-IMPLEMENTATION.md, harness-*.md) | architect | code as-is | code |
 | `third_party/` | vendored upstreams | nobody (frozen) | — | everything |
 | root | SKILL.md, ARCHITECTURE.md, README.md, IMPLEMENTATION.md, install.sh, LICENSE/NOTICE | integrator only | all | — |
@@ -207,7 +208,7 @@ agents/plugin into the target harness. Any new file must be reachable through it
 - `session-boot.sh` emits **one** JSON document per section; workers read the frontier
   with `claim-next.sh`/`frontier.sh` (single `bd ready --label … --json` query).
 - The plugin never blocks the turn on bd: state is a small JSON sidecar
-  (`.opencode/beadfinder/state.json`), snapshots throttled.
+  (`.omp/beadfinder/state.json`, `.opencode/beadfinder/state.json`, or `.cline/beadfinder/state.json`), snapshots throttled.
 - Review loops are bounded by artifact size, not repo size: the reviewer reads the
   ticket's target files + diff, not the whole tree.
 - `verify-review-flow.sh` runs against a **scratch bd store in a temp directory**

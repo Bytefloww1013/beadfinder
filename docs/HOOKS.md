@@ -1,6 +1,6 @@
 # Beadfinder hooks — human reference
 
-v0.5.0. Oh My Pi and OpenCode.
+v0.7.0. Oh My Pi, OpenCode, and Cline.
 
 These hooks sit on harness events. The model cannot talk them out of a block. Skills still explain the rules; hooks refuse the move.
 
@@ -11,6 +11,7 @@ Debug log (only with `beadfinder-debug` or `BEADFINDER_DEBUG=1`):
 ```
 <target-repo>/.omp/beadfinder-debug.log         # Oh My Pi
 <target-repo>/.opencode/beadfinder-debug.log    # OpenCode
+<target-repo>/.cline/beadfinder-debug.log       # Cline
 ```
 
 Default lines are `error` / `warning` / `concern`. `info` (every tool_call / turn_end) needs `BEADFINDER_DEBUG=verbose`.
@@ -28,6 +29,8 @@ bash install.sh --omp
 bash install.sh --omp --debug
 bash install.sh --opencode
 bash install.sh --opencode --debug
+bash install.sh --cline
+bash install.sh --cline --debug
 ```
 
 OMP hooks land in `.omp/extensions/beadfinder/` (or `~/.omp/agent/extensions/beadfinder` with `--global`). If a given OMP build discovers `hooks/pre` but never runs it, list the extension path in `.omp/settings.json`:
@@ -37,6 +40,8 @@ OMP hooks land in `.omp/extensions/beadfinder/` (or `~/.omp/agent/extensions/bea
 ```
 
 OpenCode hooks land in `.opencode/plugins/beadfinder.ts` (or `~/.config/opencode/plugins` with `--global`). OpenCode auto-loads `{plugin,plugins}/*.{ts,js}` at startup — restart OpenCode after install. No `opencode.json` `plugin` entry is required.
+
+Cline hooks land in `.cline/plugins/beadfinder/` (or `~/.cline/plugins/beadfinder/` with `--global`), containing `package.json`, `index.ts`, and helper modules in `lib/`. Restart Cline after install.
 
 ---
 
@@ -250,15 +255,40 @@ OpenCode also covers `apply_patch` (paths parsed from `*** Update File:` markers
 
 ---
 
+## Cline event map
+
+Same gates as above. Cline plugin interface hooks:
+
+| Job | OMP | OpenCode | Cline |
+|---|---|---|---|
+| pre | `tool_call` → `{ block: true, reason }` | `tool.execute.before` → `throw new Error("[beadfinder:…]")` | `beforeTool` → `throw new Error("[beadfinder:…]")` |
+| post | `tool_result` | `tool.execute.after` | `afterTool` |
+| run start / persona | `before_agent_start` | `chat.message` / `input.agent` | `beforeRun` (`agent`, `persona`) |
+| stop / yield | `agent_end` / `session_shutdown` | `session.deleted` | `afterRun` |
+
+Cline tool classification covers:
+- Read tools: `read`, `read_file`, `read_files`, `open_file`.
+- Write/edit tools: `write`, `edit`, `editor`, `apply_patch`.
+- Bash tools: `bash`, `shell`, `terminal`, `execute_command`, `run_commands`.
+- Spawn tools: `task`, `spawn_agent`, `start_subagent`, `subagent_run`.
+- Glob/search tools: `glob`, `grep`, `search`, `list`, `list_dir`, `ls`, `search_codebase`, `list_files`, `find_files`.
+
+Hook state is keyed by session id under `<target-repo>/.cline/beadfinder/state.json`. Debug log is `<target-repo>/.cline/beadfinder-debug.log`.
+
+---
+
 ## beadfinder-debug (skill + hook)
 
 Not a gate. Only records.
 
 **On when:**
-- `bash install.sh --omp --debug` installed `skills/beadfinder-debug`, or
+- `bash install.sh --omp --debug`, `bash install.sh --opencode --debug`, or `bash install.sh --cline --debug` installed `skills/beadfinder-debug`, or
 - `BEADFINDER_DEBUG=1`
 
-**Writes:** `.omp/beadfinder-debug.log`
+**Writes:**
+- Oh My Pi: `.omp/beadfinder-debug.log`
+- OpenCode: `.opencode/beadfinder-debug.log`
+- Cline: `.cline/beadfinder-debug.log`
 
 **Sources:**
 - `advisor` — hook blocks, stale-status warnings, empty frontier
