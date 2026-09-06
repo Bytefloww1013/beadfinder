@@ -1,0 +1,8 @@
+{
+  "name": "beadfinder",
+  "private": true,
+  "scripts": {
+    "sync": "bun scripts/sync-adapters.ts",
+    "verify:sync": "bun scripts/sync-adapters.ts --check"
+  }
+}

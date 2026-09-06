@@ -25,6 +25,7 @@ import {
 import { hooksDisabled } from "./fsutil.ts";
 import { advisor, debugEnabled, debugLog } from "./log.ts";
 import { isBareBeadsPath, isProductPath, isProtectedPath, isTrackerSidecar, personaWall } from "./paths.ts";
+import { evaluateCloseGuard } from "./policy-core.ts";
 import { loadState, recordClosed, saveState, type SessionState } from "./state.ts";
 import {
   bashCommand,
@@ -78,18 +79,6 @@ function throwBlock(cwd: string, hook: string, reason: string, details?: unknown
 
 function warn(cwd: string, hook: string, reason: string, details?: unknown) {
   advisor(cwd, hook, "warning", reason, details);
-}
-
-function parseRubricScores(text: string): { quality: number; correctness: number; pillars: number } | null {
-  const parseDim = (pat: string): number | null => {
-    const m = text.match(new RegExp(`(^|[^a-zA-Z0-9])${pat}[^0-9\\r\\n]*([0-9]+)\\s*\\/\\s*10`, "i"));
-    return m ? parseInt(m[2], 10) : null;
-  };
-  const quality = parseDim("quality");
-  const correctness = parseDim("correctness");
-  const pillars = parseDim("pillars?");
-  if (quality === null || correctness === null || pillars === null) return null;
-  return { quality, correctness, pillars };
 }
 
 function looksLikeOurInject(text: string): boolean {
@@ -385,23 +374,8 @@ export async function handleToolBefore(
       }
       if (st.persona === "reviewer" && inReview) {
         const reason = flagValue(bd, "--reason") || flagValue(bd, "-r");
-        const parsed = parseRubricScores(reason);
-        if (!/Review PASS/i.test(reason) || !parsed) {
-          throwBlock(
-            cwd,
-            "bd-close-guard",
-            "Reviewer close reason must record all three scores: quality, correctness, pillars (e.g. Review PASS: quality 9/10, correctness 8/10, pillars 9/10.).",
-          );
-        }
-        const dims = ["quality", "correctness", "pillars"] as const;
-        const oob = dims.filter((d) => parsed[d] < 1 || parsed[d] > 10).map((d) => `${d} ${parsed[d]}/10`);
-        if (oob.length) {
-          throwBlock(cwd, "bd-close-guard", `Rubric scores out of bounds [1-10]: ${oob.join(", ")}`);
-        }
-        const low = dims.filter((d) => parsed[d] < 8).map((d) => `${d} ${parsed[d]}/10`);
-        if (low.length) {
-          throwBlock(cwd, "bd-close-guard", `Scores below pass bar (>= 8): ${low.join(", ")}`);
-        }
+        const r = evaluateCloseGuard(reason);
+        if (!r.ok) throwBlock(cwd, r.hook, r.message);
       }
       if (
         issue &&

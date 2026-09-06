@@ -1,3 +1,22 @@
+// Pure tokenizer/argv helpers live in core/lib/tools-core.ts (vendored by
+// scripts/sync-adapters.ts — ohmypi's manifest slice includes it). Only the
+// helpers whose behavior is identical across harnesses are re-exported here;
+// classification sets and input-shape helpers stay local on purpose (OMP's
+// apply_patch is NOT a write tool; spawn/glob classifiers are narrower; and
+// inputPath deliberately ignores a bare "file" key).
+export {
+  applyPatchPaths,
+  bashCommand,
+  firstBdInvocation,
+  flagValue,
+  hasFlag,
+  labelBlob,
+  looksLikeMutatingBash,
+  looksLikeProductWriteBash,
+  spawnText,
+  tokenize,
+} from "./tools-core.ts";
+
 const WRITE_TOOLS = new Set(["write", "edit", "multiedit"]);
 const READ_TOOLS = new Set(["read"]);
 const BASH_TOOLS = new Set(["bash", "shell"]);
@@ -37,26 +56,6 @@ export function inputPath(input: Record<string, unknown>): string {
   return "";
 }
 
-/** Paths listed in an apply_patch payload. Parity copy of the OpenCode/Cline helper. */
-export function applyPatchPaths(patchText: string): string[] {
-  if (!patchText) return [];
-  const out: string[] = [];
-  const re = /^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$/gm;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(patchText))) {
-    const p = (m[1] || "").trim();
-    if (p) out.push(p);
-  }
-  if (out.length === 0) {
-    const diffRe = /^(?:---|\+\+\+)\s+[ab]\/(.+)$/gm;
-    while ((m = diffRe.exec(patchText))) {
-      const p = (m[1] || "").trim();
-      if (p && !out.includes(p)) out.push(p);
-    }
-  }
-  return out;
-}
-
 export function globSearchPaths(input: Record<string, unknown>): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
@@ -74,73 +73,3 @@ export function globSearchPaths(input: Record<string, unknown>): string[] {
   return out;
 }
 
-export function bashCommand(input: Record<string, unknown>): string {
-  for (const key of ["command", "cmd", "script"]) {
-    const v = input[key];
-    if (typeof v === "string") return v;
-  }
-  return "";
-}
-
-export function spawnText(input: Record<string, unknown>): string {
-  const chunks: string[] = [];
-  const walk = (v: unknown) => {
-    if (typeof v === "string") chunks.push(v);
-    else if (Array.isArray(v)) v.forEach(walk);
-    else if (v && typeof v === "object") Object.values(v as object).forEach(walk);
-  };
-  walk(input);
-  return chunks.join("\n");
-}
-
-export function looksLikeMutatingBash(cmd: string): boolean {
-  return /\b(rm|mv|sed|perl|python3?|node|ruby)\b/.test(cmd) &&
-    /(>|>>|tee\b|-i\b|writeFile|open\([^)]*['"]w)/.test(cmd);
-}
-
-export function looksLikeProductWriteBash(cmd: string): boolean {
-  if (!looksLikeMutatingBash(cmd) && !/\b(cat|tee|printf)\b.*>/.test(cmd)) return false;
-  return /(^|[\s/'"])(src|lib|app|apps|packages|backend|frontend|server|client)\//.test(cmd);
-}
-
-/** Split a shell line into argv-ish tokens. Good enough for bd/git guards. */
-export function tokenize(cmd: string): string[] {
-  const out: string[] = [];
-  const re = /"([^"]*)"|'([^']*)'|`([^`]*)`|(\S+)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(cmd))) {
-    out.push(m[1] ?? m[2] ?? m[3] ?? m[4] ?? "");
-  }
-  return out;
-}
-
-export function firstBdInvocation(cmd: string): string[] | null {
-  const lines = cmd.split(/\n|;|&&|\|\|/).map((s) => s.trim()).filter(Boolean);
-  for (const line of lines) {
-    const tokens = tokenize(line.replace(/^\s*\d*\s*>\s*/, ""));
-    const idx = tokens.findIndex((t) => t === "bd" || t.endsWith("/bd"));
-    if (idx >= 0) return tokens.slice(idx);
-  }
-  return null;
-}
-
-export function flagValue(argv: string[], name: string): string {
-  const i = argv.findIndex((t) => t === name || t.startsWith(name + "="));
-  if (i < 0) return "";
-  const tok = argv[i];
-  if (tok.startsWith(name + "=")) return tok.slice(name.length + 1);
-  return argv[i + 1] || "";
-}
-
-export function hasFlag(argv: string[], name: string): boolean {
-  return argv.some((t) => t === name || t.startsWith(name + "="));
-}
-
-export function labelBlob(argv: string[]): string {
-  const bits: string[] = [];
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === "-l" || argv[i] === "--label") bits.push(argv[i + 1] || "");
-    if (argv[i].startsWith("--label=")) bits.push(argv[i].slice(8));
-  }
-  return bits.join(",");
-}

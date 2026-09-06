@@ -22,6 +22,11 @@ export type SessionState = {
   lastRefreshAt: number;
   lastSnapshot: string;
   seenClosed: Record<string, string>;
+  booted: boolean;
+};
+
+export type Store = {
+  sessions: Record<string, SessionState>;
 };
 
 export const emptyState = (): SessionState => ({
@@ -37,23 +42,43 @@ export const emptyState = (): SessionState => ({
   lastRefreshAt: 0,
   lastSnapshot: "",
   seenClosed: {},
+  booted: false,
 });
 
-export function loadState(cwd: string): SessionState {
-  return { ...emptyState(), ...readJson(statePath(cwd), emptyState()) };
+function emptyStore(): Store {
+  return { sessions: {} };
 }
 
-export function saveState(cwd: string, state: SessionState): void {
-  writeJson(statePath(cwd), state);
+function loadStore(cwd: string): Store {
+  const raw = readJson<Store | SessionState>(cwd ? statePath(cwd) : "", emptyStore());
+  if (raw && typeof raw === "object" && "sessions" in raw && raw.sessions && typeof raw.sessions === "object") {
+    return raw as Store;
+  }
+  // migrate a flat OMP-shaped file (single SessionState at the top level)
+  if (raw && typeof raw === "object" && ("persona" in raw || "claimedId" in raw)) {
+    return { sessions: { default: { ...emptyState(), ...(raw as SessionState) } } };
+  }
+  return emptyStore();
 }
 
-export function recordClosed(cwd: string, id: string): SessionState {
-  const state = loadState(cwd);
+export function loadState(cwd: string, sessionID = "default"): SessionState {
+  const store = loadStore(cwd);
+  return { ...emptyState(), ...(store.sessions[sessionID] || {}) };
+}
+
+export function saveState(cwd: string, sessionID: string, state: SessionState): void {
+  const store = loadStore(cwd);
+  store.sessions[sessionID] = state;
+  writeJson(statePath(cwd), store);
+}
+
+export function recordClosed(cwd: string, sessionID: string, id: string): SessionState {
+  const state = loadState(cwd, sessionID);
   if (id) state.seenClosed[id] = new Date().toISOString();
   if (state.claimedId === id) {
     state.claimedId = "";
     state.claimedAt = "";
   }
-  saveState(cwd, state);
+  saveState(cwd, sessionID, state);
   return state;
 }

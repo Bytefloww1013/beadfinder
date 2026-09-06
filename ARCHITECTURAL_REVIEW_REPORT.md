@@ -575,3 +575,44 @@ A team of implementer and reviewer agents executed the remediation roadmap in §
 Reviewer nits addressed post-review: the "OpenCode" copy-paste doc comment in `adapters/ohmypi/extensions/beadfinder/lib/tools.ts:40` was corrected to note it is a parity copy. Remaining reviewer nits (accepted, non-blocking): OMP guard ships without automated tests (see #12); in mixed out-of-bounds + below-bar reasons the verdict script reports only the out-of-bounds dims on the first attempt.
 
 **Conclusion**: All five ticketed critiques are fixed and independently verified; the three open items (#8, #9, #12) are the larger architectural consolidations that remain on the roadmap for a future overhaul bead.
+
+---
+
+# ADDENDUM 2 — Architectural Overhaul Results (2026-09-06)
+
+The deferred architectural items (Addendum items #8, #9, #11, #12) were executed as a three-wave implementer/reviewer program. All work was independently adversarially reviewed; scores below are the reviewers' own, pass bar >= 8 per dimension.
+
+## Wave 1 — foundations (4 tickets)
+
+| Ticket | Scope | Scores (Q/C/P) | Verdict |
+|---|---|---|---|
+| W1-T1 | `core/lib/` source of truth (log, fsutil, paths, state, bd) + `scripts/sync-adapters.ts` vendoring with `--check` drift gate | 8.5 / 8.5 / 8.5 | **PASS** (drift detection mutation-tested) |
+| W1-T2 | OMP per-session state isolation (session-keyed Store + `BEADFINDER_SESSION_ID` seam) | 8 / **5** / 7 -> rework -> 9 / 10 / 9 | **FAIL first, PASS after rework** |
+| W1-T3 | OMP test suite bootstrap (0 -> 71 tests) | 8 / 9 / 9 | **PASS** (vacuity hunt + mutation spot-checks clean) |
+| W1-T4 | `install.sh` structural live-verification (`scripts/verify-install.sh`, 8/8 sandboxed runs incl. `--global` and `--dest`) | 9 / 8 / 9 | **PASS** (sabotage-detection proven) |
+
+Honesty note: W1-T2 initially FAILED review (correctness 5/10): the session-key threading missed `rememberScriptContext` in OMP's `bd.ts`, silently no-op'ing every script-context write (`sessions["[object Object]"]`). The reviewer proved it empirically; the fix was applied with a regression test that was itself mutation-proven to bind. This is recorded as delivered FAIL->fix->PASS, not as a clean pass.
+
+## Wave 2 — shared logic extraction (3 tickets)
+
+| Ticket | Scope | Scores (Q/C/P) | Verdict |
+|---|---|---|---|
+| W2-T5 | `core/lib/policy-core.ts`: single `evaluateCloseGuard` (bounds [1,10] + pass bar >= 8) used by all three adapters; messages byte-identical, existing tests unchanged | 9 / 10 / 10 | **PASS** |
+| W2-T6 | `core/lib/tools-core.ts`: tokenizer unified; **`flagValue` first-wins bug fixed to last-wins**; `bashCommand` unified to cline's superset; broken `describe` nesting in cline tools.test.ts repaired | 9 / 9 / 9 | **PASS** |
+| W2-T7 | `listLive` per-status fallback fixed in core + OMP: parses `res.raw` so an old `bd` rejecting the combined `--status open,in_progress` query still recovers results (previously a dead fallback) | 8 / 9 / 8 | **PASS** |
+
+## Final verification gates (all green)
+
+- `bun test` (whole repo): **174 pass, 0 fail** across 13 files (was 76 before the overhaul: 40 cline + 36 opencode + 0 OMP)
+- `bun scripts/sync-adapters.ts --check`: exit 0 (17 vendored files in sync)
+- `bash scripts/verify-review-flow.sh`: PASS (15 assertions)
+- `bash scripts/verify-install.sh`: 8/8 PASS
+- `python3 -m json.tool docs/STATUS.json`: valid
+
+## Remaining open items (honest ledger)
+
+- OMP `bd.ts` is still a per-adapter fork (only `log/fsutil/paths/state/policy-core/tools-core` are manifest-vendored); the listLive fix therefore exists in two hand-maintained shapes, currently test-guarded but not diff-guarded. Next step: extend the manifest slice or reconcile the fork.
+- `saveState` remains an unlocked read-modify-write of a single store file: near-simultaneous OMP writes can lose one side (pre-existing; the session-keyed store slightly widens the window). Consider atomic rename or per-session files.
+- OMP session identity is still env-based (`BEADFINDER_SESSION_ID`) because OMP hook payloads carry no session id; launchers should set it, otherwise all sessions share the `default` bucket.
+- `flagValue`/`hasFlag` deliberately do not honor the `--` end-of-options terminator (documented + pinned by test).
+- Reviewer agents scored against the uncommitted working tree at HEAD `1eee376`; commit hygiene for this overhaul is left to the maintainer.

@@ -175,6 +175,9 @@ export function mergeIssues(...lists: BdIssue[][]): BdIssue[] {
 /**
  * Live = open + in_progress. Beads takes comma-separated --status;
  * repeating --status overwrites. Fall back to two queries on older CLIs.
+ * The fallback parses each result's raw stdout directly (not res.json,
+ * which runBd forces to null on nonzero exit) so a bd that exits nonzero
+ * while still printing JSON still yields the union.
  */
 export async function listLive(cwd: string, args: string[]): Promise<BdIssue[]> {
   const combined = await runBd(cwd, [...args, "--status", "open,in_progress", "--json"]);
@@ -184,7 +187,13 @@ export async function listLive(cwd: string, args: string[]): Promise<BdIssue[]> 
   const buckets: BdIssue[][] = [];
   for (const status of ["open", "in_progress"]) {
     const res = await runBd(cwd, [...args, "--status", status, "--json"]);
-    buckets.push(asIssues(res.json).filter((i) => isLiveStatus(i.status)));
+    let parsed: unknown = res.json;
+    try {
+      parsed = JSON.parse(res.raw);
+    } catch {
+      /* raw is not JSON; keep res.json (null on failure) */
+    }
+    buckets.push(asIssues(parsed).filter((i) => isLiveStatus(i.status)));
   }
   return mergeIssues(...buckets);
 }

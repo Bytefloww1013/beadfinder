@@ -12,6 +12,8 @@ import {
   looksLikeProductWriteBash,
   spawnContract,
   toolPaths,
+  bashCommand,
+  flagValue,
 } from "./tools.ts";
 import { isBareBeadsPath, isProductPath, isProtectedPath, isTrackerSidecar, personaWall } from "./paths.ts";
 
@@ -125,5 +127,59 @@ describe("spawn + bd parsing", () => {
   test("product write via bash", () => {
     expect(looksLikeProductWriteBash("sed -i 's/a/b/' src/main.ts")).toBe(true);
     expect(looksLikeProductWriteBash("bd show auth-1 --json")).toBe(false);
+  });
+});
+
+describe("adversarial tokenizer coverage (tools-core)", () => {
+  test("flagValue reads the --flag=value form", () => {
+    expect(flagValue(["bd", "create", "--parent=slice-9"], "--parent")).toBe("slice-9");
+    expect(flagValue(["bd", "create", "--label=x:y"], "--label")).toBe("x:y");
+    expect(flagValue(["bd", "create", "--parent="], "--parent")).toBe("");
+  });
+
+  test("tokenize keeps quoted values as single tokens", () => {
+    const argv = firstBdInvocation('bd create "fix the bug" --reason "a b c"');
+    expect(argv).not.toBeNull();
+    expect(argv).toContain("fix the bug");
+    expect(flagValue(argv || [], "--reason")).toBe("a b c");
+    const single = firstBdInvocation("bd create 'one two' --reason 'x y'");
+    expect(single).toContain("one two");
+    expect(flagValue(single || [], "--reason")).toBe("x y");
+  });
+
+  test("flagValue: the LAST occurrence wins for repeated flags", () => {
+    expect(flagValue(["bd", "create", "--parent", "one", "--parent", "two"], "--parent")).toBe("two");
+    expect(flagValue(["bd", "create", "--parent=one", "--parent", "two"], "--parent")).toBe("two");
+    expect(flagValue(["bd", "create", "--parent", "one", "--parent=two"], "--parent")).toBe("two");
+  });
+
+  test("hasFlag/flagValue still match flags placed after a -- separator (documented limitation)", () => {
+    expect(hasFlag(["bd", "create", "x", "--", "--claim"], "--claim")).toBe(true);
+    expect(flagValue(["bd", "create", "x", "--", "--parent", "p"], "--parent")).toBe("p");
+  });
+
+  test("firstBdInvocation finds bd after &&, ;, ||, and newline", () => {
+    expect(firstBdInvocation("echo a && bd list")?.[1]).toBe("list");
+    expect(firstBdInvocation("echo a; bd list")?.[1]).toBe("list");
+    expect(firstBdInvocation("echo a || bd list")?.[1]).toBe("list");
+    expect(firstBdInvocation("echo a\nbd list")?.[1]).toBe("list");
+  });
+
+  test("a single | is not a split boundary; tokens keep the pipe and bd is still found", () => {
+    const piped = firstBdInvocation("bd list | grep auth");
+    expect(piped?.[0]).toBe("bd");
+    expect(piped).toContain("|");
+    // The returned slice starts at bd, so a pipe BEFORE bd is dropped from the result.
+    expect(firstBdInvocation("echo hi | bd list")).toEqual(["bd", "list"]);
+  });
+
+  test("leading redirects are stripped before tokenizing", () => {
+    expect(firstBdInvocation("2> /dev/null bd list")).toEqual(["bd", "list"]);
+    expect(firstBdInvocation("> out.txt bd list")).toEqual(["bd", "list"]);
+  });
+
+  test("bashCommand joins commands arrays with && (unified cline superset)", () => {
+    expect(bashCommand({ commands: ["echo 1", "echo 2"] })).toBe("echo 1 && echo 2");
+    expect(bashCommand({ commands: ["echo 1", 42, "echo 2"] })).toBe("echo 1 && echo 2");
   });
 });

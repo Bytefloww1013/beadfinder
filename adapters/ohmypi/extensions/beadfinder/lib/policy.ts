@@ -2,12 +2,20 @@
 /**
  * Beadfinder policy pack for Oh My Pi.
  * Default-export hook factory. Loaded from .omp/extensions/beadfinder/.
+ *
+ * SESSION IDENTITY SEAM: OMP hook payloads expose no session/thread/agent id
+ * that is reachable at our call sites (events give us only `event.input` and
+ * `ctx.cwd`). Per-session state isolation therefore keys off:
+ *   (a) not available — OMP provides no session id in hook input today;
+ *   (b) `process.env.BEADFINDER_SESSION_ID` when the launcher sets one;
+ *   (c) the literal "default" bucket otherwise.
  */
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
 import { asIssues, formatSnapshot, isAppendDecision, isClaimNext, isClosedStatus, isSessionBoot, issueId, labelsOf, listLive, modeFromLabels, parseClaimNextArgs, rememberScriptContext, runBd } from "./bd.ts";
 import { hooksDisabled } from "./fsutil.ts";
 import { advisor, debugLog } from "./log.ts";
 import { isBareBeadsPath, isLikelyAdrPath, isProductPath, isProtectedPath, isTrackerSidecar } from "./paths.ts";
+import { evaluateCloseGuard } from "./policy-core.ts";
 import { loadState, recordClosed, saveState, type Persona } from "./state.ts";
 import {
   bashCommand,
@@ -31,6 +39,10 @@ import { registerDebug } from "./debug.ts";
 const BUDGET = Number(process.env.BEADFINDER_MUTATING_BUDGET || 80);
 const REFRESH_MS = Number(process.env.BEADFINDER_REFRESH_MS || 45_000);
 const YIELD_ON_STOP = (process.env.BEADFINDER_YIELD_ON_STOP || "afk").toLowerCase();
+
+function sessionKey(): string {
+  return process.env.BEADFINDER_SESSION_ID?.trim() || "default";
+}
 
 function note(pi: HookAPI, text: string, display = true): void {
   try {
@@ -59,18 +71,6 @@ function warn(cwd: string, hook: string, reason: string, details?: unknown) {
   advisor(cwd, hook, "warning", reason, details);
 }
 
-function parseRubricScores(text: string): { quality: number; correctness: number; pillars: number } | null {
-  const parseDim = (pat: string): number | null => {
-    const m = text.match(new RegExp(`(^|[^a-zA-Z0-9])${pat}[^0-9\\r\\n]*([0-9]+)\\s*\\/\\s*10`, "i"));
-    return m ? parseInt(m[2], 10) : null;
-  };
-  const quality = parseDim("quality");
-  const correctness = parseDim("correctness");
-  const pillars = parseDim("pillars?");
-  if (quality === null || correctness === null || pillars === null) return null;
-  return { quality, correctness, pillars };
-}
-
 async function liveSnapshot(pi: HookAPI): Promise<string> {
   const dest = await listLive(pi, ["list", "--label", "beadfinder:destination", "--type", "epic"]);
   const slices = await listLive(pi, ["list", "--label", "beadfinder:slice"]);
@@ -93,8 +93,8 @@ async function showIssue(pi: HookAPI, id: string) {
   return asIssues(res.json)[0];
 }
 
-async function refreshAndInject(pi: HookAPI, cwd: string, force = false): Promise<void> {
-  const state = loadState(cwd);
+async function refreshAndInject(pi: HookAPI, cwd: string, sid: string, force = false): Promise<void> {
+  const state = loadState(cwd, sid);
   const now = Date.now();
   if (!force && now - state.lastRefreshAt < REFRESH_MS) return;
   const snap = await liveSnapshot(pi);
@@ -106,13 +106,13 @@ async function refreshAndInject(pi: HookAPI, cwd: string, force = false): Promis
       const msg = `Claimed ticket ${state.claimedId} is CLOSED in Beads (${issue.status}). Do not treat it as open. Yield and pick a live ticket.`;
       warn(cwd, "status-refresh", msg, issue);
       note(pi, msg);
-      recordClosed(cwd, state.claimedId);
+      recordClosed(cwd, sid, state.claimedId);
     }
   }
-  const next = loadState(cwd);
+  const next = loadState(cwd, sid);
   next.lastRefreshAt = now;
   next.lastSnapshot = snap;
-  saveState(cwd, next);
+  saveState(cwd, sid, next);
   note(pi, snap, false);
 }
 
@@ -149,6 +149,7 @@ export function createBeadfinder(pi: HookAPI): void {
   pi.on("session_start", async (_event, ctx) => {
     if (hooksDisabled()) return;
     const cwd = ctx.cwd;
+    const sid = sessionKey();
     debugLog(cwd, { level: "info", source: "hook", hook: "session-boot-inject", message: "session_start" });
     const primed = await runBd(pi, ["prime"]);
     if (!primed.ok && /not found|not on PATH|ENOENT/i.test(primed.raw)) {
@@ -156,8 +157,8 @@ export function createBeadfinder(pi: HookAPI): void {
       advisor(cwd, "session-boot-inject", "error", "bd missing", primed.raw);
       return;
     }
-    await refreshAndInject(pi, cwd, true);
-    const state = loadState(cwd);
+    await refreshAndInject(pi, cwd, sid, true);
+    const state = loadState(cwd, sid);
     if (state.claimedId) {
       note(pi, `Session state still lists claimed ticket ${state.claimedId}. Re-query bd show ${state.claimedId} before acting.`);
     }
@@ -165,8 +166,9 @@ export function createBeadfinder(pi: HookAPI): void {
 
   pi.on("before_agent_start", async (_event, ctx) => {
     if (hooksDisabled()) return;
-    await refreshAndInject(pi, ctx.cwd, false);
-    const state = loadState(ctx.cwd);
+    const sid = sessionKey();
+    await refreshAndInject(pi, ctx.cwd, sid, false);
+    const state = loadState(ctx.cwd, sid);
     if (!state.lastSnapshot) return;
     return {
       message: {
@@ -180,7 +182,7 @@ export function createBeadfinder(pi: HookAPI): void {
 
   pi.on("session.compacting", async (_event, ctx) => {
     if (hooksDisabled()) return;
-    const state = loadState(ctx.cwd);
+    const state = loadState(ctx.cwd, sessionKey());
     const bits = [
       state.lastSnapshot || "No live snapshot. Run session-boot.sh and bd show on the claimed ticket.",
       state.claimedId ? `Claimed: ${state.claimedId}` : "No claimed ticket in hook state.",
@@ -192,15 +194,16 @@ export function createBeadfinder(pi: HookAPI): void {
 
   pi.on("turn_start", async (_event, ctx) => {
     if (hooksDisabled()) return;
-    await refreshAndInject(pi, ctx.cwd, false);
+    await refreshAndInject(pi, ctx.cwd, sessionKey(), false);
   });
 
   pi.on("tool_call", async (event, ctx) => {
     if (hooksDisabled()) return;
     const cwd = ctx.cwd;
+    const sid = sessionKey();
     const name = toolName(event);
     const input = (event.input || {}) as Record<string, unknown>;
-    const state = loadState(cwd);
+    const state = loadState(cwd, sid);
 
     if (isGlobTool(name) || isReadTool(name)) {
       const bad = globSearchPaths(input).find((p) => isBareBeadsPath(cwd, p));
@@ -237,7 +240,7 @@ export function createBeadfinder(pi: HookAPI): void {
         return block(cwd, "claim-gate", "Claim a build ticket before editing product files.", { path: p });
       }
       state.mutatingTools += 1;
-      saveState(cwd, state);
+      saveState(cwd, sid, state);
       if (state.mutatingTools > BUDGET) {
         return block(cwd, "budget-cap", `Mutating-tool budget (${BUDGET}) exhausted for this session. Yield the claim and stop.`, {
           mutatingTools: state.mutatingTools,
@@ -276,22 +279,22 @@ export function createBeadfinder(pi: HookAPI): void {
     const cmd = bashCommand(input);
     if (!cmd) return;
 
-    rememberScriptContext(cwd, cmd);
+    rememberScriptContext(cwd, sessionKey(), cmd);
 
     if (/\bgh\s+issue\s+create\b/.test(cmd)) {
       return block(cwd, "beads-only", "Do not open GitHub issues for this work. File a bead.");
     }
 
     if (looksLikeProductWriteBash(cmd)) {
-      const wall = personaWall(cwd, loadState(cwd).persona, "src/");
+      const wall = personaWall(cwd, loadState(cwd, sid).persona, "src/");
       if (wall) return block(cwd, "persona-fs-guard", wall + " (via bash)", { cmd: cmd.slice(0, 240) });
-      if (!loadState(cwd).claimedId && loadState(cwd).persona === "implementer") {
+      if (!loadState(cwd, sid).claimedId && loadState(cwd, sid).persona === "implementer") {
         return block(cwd, "claim-gate", "Claim a build ticket before rewriting product files with bash.");
       }
     }
 
     if (isClaimNext(cmd)) {
-      const st = loadState(cwd);
+      const st = loadState(cwd, sid);
       const parsed = parseClaimNextArgs(cmd);
       if (st.claimedId && st.lastClaimedNonResearch) {
         return block(
@@ -303,7 +306,7 @@ export function createBeadfinder(pi: HookAPI): void {
       }
       if (parsed.persona) {
         st.persona = parsed.persona;
-        saveState(cwd, st);
+        saveState(cwd, sid, st);
       }
     }
 
@@ -317,7 +320,7 @@ export function createBeadfinder(pi: HookAPI): void {
     }
 
     if (sub === "update" && hasFlag(bd, "--claim")) {
-      const st = loadState(cwd);
+      const st = loadState(cwd, sid);
       const id = bd[2] && !bd[2].startsWith("-") ? bd[2] : "";
       if (st.claimedId && st.lastClaimedNonResearch && id && id !== st.claimedId) {
         return block(cwd, "claim-gate", `Already claimed ${st.claimedId} this session.`);
@@ -327,7 +330,7 @@ export function createBeadfinder(pi: HookAPI): void {
     if (sub === "create") {
       const labels = labelBlob(bd);
       if (/phase:(execute|implement)|beadfinder:build/.test(labels)) {
-        const parent = flagValue(bd, "--parent") || loadState(cwd).parent;
+        const parent = flagValue(bd, "--parent") || loadState(cwd, sid).parent;
         if (parent) {
           const openKids = await runBd(pi, ["list", "--parent", parent, "--status", "open", "--json"]);
           const kids = asIssues(openKids.json).filter((i) => !isClosedStatus(i.status));
@@ -356,30 +359,15 @@ export function createBeadfinder(pi: HookAPI): void {
         if (/beadfinder:destination/.test(labels)) {
           return block(cwd, "bd-close-guard", `Refusing to close destination ${id}. Destination stays open.`);
         }
-        const st = loadState(cwd);
+        const st = loadState(cwd, sid);
         const inReview = /phase:review|(^|,)review(,|$)/.test(labels);
         if (st.persona === "implementer" && inReview) {
           return block(cwd, "bd-close-guard", "Implementer may not close a bead under review. The reviewer closes on pass.");
         }
         if (st.persona === "reviewer" && inReview) {
           const reason = flagValue(bd, "--reason") || flagValue(bd, "-r");
-          const parsed = parseRubricScores(reason);
-          if (!/Review PASS/i.test(reason) || !parsed) {
-            return block(
-              cwd,
-              "bd-close-guard",
-              "Reviewer close reason must record all three scores: quality, correctness, pillars (e.g. Review PASS: quality 9/10, correctness 8/10, pillars 9/10.).",
-            );
-          }
-          const dims = ["quality", "correctness", "pillars"] as const;
-          const oob = dims.filter((d) => parsed[d] < 1 || parsed[d] > 10).map((d) => `${d} ${parsed[d]}/10`);
-          if (oob.length) {
-            return block(cwd, "bd-close-guard", `Rubric scores out of bounds [1-10]: ${oob.join(", ")}`);
-          }
-          const low = dims.filter((d) => parsed[d] < 8).map((d) => `${d} ${parsed[d]}/10`);
-          if (low.length) {
-            return block(cwd, "bd-close-guard", `Scores below pass bar (>= 8): ${low.join(", ")}`);
-          }
+          const r = evaluateCloseGuard(reason);
+          if (!r.ok) return block(cwd, r.hook, r.message);
         }
         if (issue && (issue.type === "epic" || issue.issue_type === "epic" || /epic/i.test(String(issue.issue_type || issue.type || "")))) {
           const kids = asIssues((await runBd(pi, ["list", "--parent", id, "--status", "open", "--json"])).json);
@@ -413,6 +401,7 @@ export function createBeadfinder(pi: HookAPI): void {
   pi.on("tool_result", async (event, ctx) => {
     if (hooksDisabled()) return;
     const cwd = ctx.cwd;
+    const sid = sessionKey();
     const name = toolName(event);
     const input = (event.input || {}) as Record<string, unknown>;
     const cmd = isBashTool(name) ? bashCommand(input) : "";
@@ -420,10 +409,10 @@ export function createBeadfinder(pi: HookAPI): void {
     const text = resultText(event);
 
     if (isClaimNext(cmd)) {
-      const st = loadState(cwd);
+      const st = loadState(cwd, sid);
       if (!text || text.trim() === "[]" || /empty frontier/.test(text) || (event as { isError?: boolean }).isError) {
         st.frontierEmpty = true;
-        saveState(cwd, st);
+        saveState(cwd, sid, st);
         advisor(cwd, "empty-frontier-stop", "warning", "claim-next returned an empty frontier");
         note(pi, "Frontier empty (claim-next exit/empty). Stop. Do not invent tickets.");
       } else {
@@ -441,35 +430,35 @@ export function createBeadfinder(pi: HookAPI): void {
         const parsed = parseClaimNextArgs(cmd);
         if (parsed.persona) st.persona = parsed.persona;
         if (parsed.parent) st.parent = parsed.parent;
-        saveState(cwd, st);
+        saveState(cwd, sid, st);
       }
     }
 
     if (isSessionBoot(cmd)) {
       const parsed = parseClaimNextArgs(cmd);
-      const st = loadState(cwd);
+      const st = loadState(cwd, sid);
       if (parsed.persona) st.persona = parsed.persona;
       if (parsed.parent) st.parent = parsed.parent;
-      saveState(cwd, st);
-      await refreshAndInject(pi, cwd, true);
+      saveState(cwd, sid, st);
+      await refreshAndInject(pi, cwd, sid, true);
     }
 
     const bd = firstBdInvocation(cmd);
     if (bd && bd[1] === "close") {
       const id = bd[2] && !bd[2].startsWith("-") ? bd[2] : "";
       if (id) {
-        recordClosed(cwd, id);
+        recordClosed(cwd, sid, id);
         note(pi, `Beads close recorded for ${id}. Treat it as closed unless bd show says otherwise.`);
-        await refreshAndInject(pi, cwd, true);
+        await refreshAndInject(pi, cwd, sid, true);
       }
     }
 
     if (bd && (bd[1] === "show" || bd[1] === "list")) {
       const closedHits = findClosedMentions(text);
       if (closedHits.length) {
-        const st = loadState(cwd);
+        const st = loadState(cwd, sid);
         for (const id of closedHits) st.seenClosed[id] = new Date().toISOString();
-        saveState(cwd, st);
+        saveState(cwd, sid, st);
       }
     }
 
@@ -477,22 +466,22 @@ export function createBeadfinder(pi: HookAPI): void {
       const id = bd[2] && !bd[2].startsWith("-") ? bd[2] : "";
       if (id) {
         const issue = await showIssue(pi, id);
-        const st = loadState(cwd);
+        const st = loadState(cwd, sid);
         const mode = issue ? modeFromLabels(labelsOf(issue)) : "";
         if (mode) st.mode = mode;
-        saveState(cwd, st);
+        saveState(cwd, sid, st);
       }
     }
   });
 
   pi.on("agent_end", async (_event, ctx) => {
     if (hooksDisabled()) return;
-    await maybeYield(pi, ctx.cwd, "agent_end");
+    await maybeYield(pi, ctx.cwd, sessionKey(), "agent_end");
   });
 
   pi.on("session_shutdown", async (_event, ctx) => {
     if (hooksDisabled()) return;
-    await maybeYield(pi, ctx.cwd, "session_shutdown");
+    await maybeYield(pi, ctx.cwd, sessionKey(), "session_shutdown");
   });
 
   registerDebug(pi);
@@ -538,8 +527,8 @@ function findClosedMentions(text: string): string[] {
   return ids;
 }
 
-async function maybeYield(pi: HookAPI, cwd: string, why: string): Promise<void> {
-  const st = loadState(cwd);
+async function maybeYield(pi: HookAPI, cwd: string, sid: string, why: string): Promise<void> {
+  const st = loadState(cwd, sid);
   if (!st.claimedId) return;
   const mode = st.mode || "";
   const allow = YIELD_ON_STOP === "1" || YIELD_ON_STOP === "true" || (YIELD_ON_STOP === "afk" && mode === "afk");
@@ -547,7 +536,7 @@ async function maybeYield(pi: HookAPI, cwd: string, why: string): Promise<void> 
   advisor(cwd, "yield-on-stop", "warning", `Yielding ${st.claimedId} on ${why}`, { mode });
   await runBd(pi, ["comment", st.claimedId, `session ended (${why}); yielding claim`]);
   await runBd(pi, ["assign", st.claimedId, ""]);
-  const next = loadState(cwd);
+  const next = loadState(cwd, sid);
   next.claimedId = "";
-  saveState(cwd, next);
+  saveState(cwd, sid, next);
 }

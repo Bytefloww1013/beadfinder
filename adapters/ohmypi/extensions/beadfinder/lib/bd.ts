@@ -141,6 +141,9 @@ export function mergeIssues(...lists: BdIssue[][]): BdIssue[] {
 /**
  * Live = open + in_progress. Beads takes comma-separated --status;
  * repeating --status overwrites. Fall back to two queries on older CLIs.
+ * The fallback parses each result's raw stdout directly (not res.json,
+ * which runBd forces to null on nonzero exit) so a bd that exits nonzero
+ * while still printing JSON still yields the union.
  */
 export async function listLive(
   pi: { exec: (cmd: string, args: string[], opts?: Record<string, unknown>) => Promise<{ stdout?: string; stderr?: string; code?: number }> },
@@ -153,7 +156,13 @@ export async function listLive(
   const buckets: BdIssue[][] = [];
   for (const status of ["open", "in_progress"]) {
     const res = await runBd(pi, [...args, "--status", status, "--json"]);
-    buckets.push(asIssues(res.json).filter((i) => isLiveStatus(i.status)));
+    let parsed: unknown = res.json;
+    try {
+      parsed = JSON.parse(res.raw);
+    } catch {
+      /* raw is not JSON; keep res.json (null on failure) */
+    }
+    buckets.push(asIssues(parsed).filter((i) => isLiveStatus(i.status)));
   }
   return mergeIssues(...buckets);
 }
@@ -170,8 +179,8 @@ export function formatSnapshot(issues: BdIssue[], heading: string): string {
   );
 }
 
-export function rememberScriptContext(cwd: string, cmd: string): void {
-  const state = loadState(cwd);
+export function rememberScriptContext(cwd: string, sid: string, cmd: string): void {
+  const state = loadState(cwd, sid);
   if (isSessionBoot(cmd) || isClaimNext(cmd) || isFrontier(cmd)) {
     const parsed = parseClaimNextArgs(cmd);
     if (parsed.persona) state.persona = parsed.persona;
@@ -186,5 +195,5 @@ export function rememberScriptContext(cwd: string, cmd: string): void {
       state.claimsThisSession += 1;
     }
   }
-  saveState(cwd, state);
+  saveState(cwd, sid, state);
 }
