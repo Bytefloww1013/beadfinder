@@ -45,12 +45,18 @@ labels_of() {
   show_bead "$1" | jq -c '(.labels // [])'
 }
 
-# Positive bead: born into the implement phase.
+# Positive bead: born into the implement phase with BOTH phase + role labels
+# (backward compatible).
 out="$(in_scratch bd create "verify-review-flow smoke test" -t task -p 3 --label phase:implement --label implementation --no-inherit-labels --json)" \
   || die "bd create (positive bead) failed"
 BEAD="$(jq -r '(if type == "array" then .[0] else . end) | .id' <<<"$out")"
 
-# Negative bead: no phase:implement + implementation pair.
+# Phase-only bead: ONLY phase:implement (stranded-ticket fix).
+out="$(in_scratch bd create "verify-review-flow smoke test (phase-only)" -t task -p 3 --label phase:implement --no-inherit-labels --json)" \
+  || die "bd create (phase-only bead) failed"
+PHASE_ONLY="$(jq -r '(if type == "array" then .[0] else . end) | .id' <<<"$out")"
+
+# Negative bead: neither phase:implement nor phase:review.
 out="$(in_scratch bd create "verify-review-flow smoke test (negative)" -t task -p 3 --no-inherit-labels --json)" \
   || die "bd create (negative bead) failed"
 NEG="$(jq -r '(if type == "array" then .[0] else . end) | .id' <<<"$out")"
@@ -60,13 +66,19 @@ NEG="$(jq -r '(if type == "array" then .[0] else . end) | .id' <<<"$out")"
 in_scratch bd update "$BEAD" --claim --json >/dev/null \
   || die "pre-a: claim failed"
 
-# a. Submit for review.
+# a. Submit for review. Phase swap only; role labels may remain.
 in_scratch bash "$SCRIPT_DIR/review-submit.sh" "$BEAD" --summary "smoke" >/dev/null \
   || die "step a: review-submit.sh exited non-zero"
 bead_json="$(show_bead "$BEAD")" || die "bd show failed for $BEAD"
 labels="$(jq -c '(.labels // [])' <<<"$bead_json")"
-jq -e 'contains(["phase:review", "review"]) and (contains(["phase:implement"]) | not)' >/dev/null <<<"$labels" \
-  || die "step a: expected phase:review + review, no phase:implement; got: $labels"
+jq -e 'index("phase:review") != null and index("phase:implement") == null' >/dev/null <<<"$labels" \
+  || die "step a: expected phase:review, no phase:implement; got: $labels"
+ok
+# Backward compatible: the implementation role label is left in place, and
+# the review role label is not added. Exact membership — contains("review")
+# would also match the phase:review string.
+jq -e 'index("implementation") != null and index("review") == null' >/dev/null <<<"$labels" \
+  || die "step a: expected implementation to remain and review role not added; got: $labels"
 ok
 
 # f. Unassign + reopen invariant.
@@ -81,16 +93,42 @@ in_scratch bd update "$BEAD" --claim --json >/dev/null \
 in_scratch bash "$SCRIPT_DIR/review-verdict.sh" "$BEAD" --fail --reason "smoke fail" >/dev/null \
   || die "step b: review-verdict.sh --fail exited non-zero"
 bead_json="$(show_bead "$BEAD")" || die "bd show failed for $BEAD"
-jq -e '(((.labels // []) | contains(["phase:implement", "implementation"])) and ((.labels // []) | (contains(["phase:review"]) | not)) and ((.assignee // "") == "") and .status == "open")' >/dev/null <<<"$bead_json" \
-  || die "step b: expected phase:implement + implementation, no phase:review, unassigned + open; got: $bead_json"
+jq -e '(((.labels // []) | (index("phase:implement") != null and index("phase:review") == null)) and ((.assignee // "") == "") and .status == "open")' >/dev/null <<<"$bead_json" \
+  || die "step b: expected phase:implement, no phase:review, unassigned + open; got: $bead_json"
 ok
 
 # c. Re-submit.
 in_scratch bash "$SCRIPT_DIR/review-submit.sh" "$BEAD" --summary "smoke 2" >/dev/null \
   || die "step c: review-submit.sh exited non-zero"
 labels="$(labels_of "$BEAD")"
-jq -e 'contains(["phase:review", "review"])' >/dev/null <<<"$labels" \
-  || die "step c: expected phase:review + review after re-submit; got: $labels"
+jq -e 'index("phase:review") != null and index("phase:implement") == null' >/dev/null <<<"$labels" \
+  || die "step c: expected phase:review, no phase:implement after re-submit; got: $labels"
+ok
+
+# i. Phase-only bead (no implementation role label) CAN be submitted.
+in_scratch bd update "$PHASE_ONLY" --claim --json >/dev/null \
+  || die "pre-i: claim failed"
+in_scratch bash "$SCRIPT_DIR/review-submit.sh" "$PHASE_ONLY" --summary "phase-only smoke" >/dev/null \
+  || die "step i: review-submit.sh rejected a phase:implement bead missing the implementation role label"
+bead_json="$(show_bead "$PHASE_ONLY")" || die "bd show failed for $PHASE_ONLY"
+labels="$(jq -c '(.labels // [])' <<<"$bead_json")"
+jq -e 'index("phase:review") != null and index("phase:implement") == null' >/dev/null <<<"$labels" \
+  || die "step i: expected phase:review, no phase:implement; got: $labels"
+ok
+jq -e '((.assignee // "") == "") and .status == "open"' >/dev/null <<<"$bead_json" \
+  || die "step i: expected unassigned + open after phase-only submit; got: $bead_json"
+ok
+# Fail path on the phase-only bead: back to phase:implement; no role labels added.
+in_scratch bd update "$PHASE_ONLY" --claim --json >/dev/null \
+  || die "pre-i-fail: claim failed"
+in_scratch bash "$SCRIPT_DIR/review-verdict.sh" "$PHASE_ONLY" --fail --reason "phase-only fail" >/dev/null \
+  || die "step i: review-verdict.sh --fail on phase-only bead exited non-zero"
+bead_json="$(show_bead "$PHASE_ONLY")" || die "bd show failed for $PHASE_ONLY"
+jq -e '(((.labels // []) | (index("phase:implement") != null and index("phase:review") == null)) and ((.assignee // "") == "") and .status == "open")' >/dev/null <<<"$bead_json" \
+  || die "step i: expected phase:implement, no phase:review, unassigned + open after fail; got: $bead_json"
+ok
+jq -e '((.labels // []) | (index("implementation") == null and index("review") == null))' >/dev/null <<<"$bead_json" \
+  || die "step i: fail path must not add role labels; got: $bead_json"
 ok
 
 # g. --pass validation: reasons lacking "Review PASS" or the rubric's three
@@ -122,7 +160,7 @@ if in_scratch bash "$SCRIPT_DIR/review-verdict.sh" "$BEAD" --pass --reason "Revi
 fi
 ok
 bead_json="$(show_bead "$BEAD")" || die "bd show failed for $BEAD"
-jq -e '(.status != "closed") and ((.labels // []) | contains(["phase:review"]))' >/dev/null <<<"$bead_json" \
+jq -e '(.status != "closed") and ((.labels // []) | index("phase:review") != null)' >/dev/null <<<"$bead_json" \
   || die "step g: rejected --pass mutated the bead; got: $bead_json"
 ok
 
@@ -134,19 +172,19 @@ jq -e '.status == "closed"' >/dev/null <<<"$bead_json" \
   || die "step d: expected status closed"
 ok
 
-# e. Submit without the label pair must be rejected.
+# e. Submit without phase:implement must be rejected.
 if in_scratch bash "$SCRIPT_DIR/review-submit.sh" "$NEG" --summary "smoke" >/dev/null 2>&1; then
-  die "step e: review-submit.sh accepted a bead missing phase:implement + implementation"
+  die "step e: review-submit.sh accepted a bead missing phase:implement"
 fi
 ok
 labels="$(labels_of "$NEG")"
-jq -e '(contains(["phase:review"]) | not)' >/dev/null <<<"$labels" \
+jq -e 'index("phase:review") == null' >/dev/null <<<"$labels" \
   || die "step e: rejected bead was mutated to phase:review"
 ok
 
-# h. Verdict on a bead not in phase:review + review state must be rejected.
+# h. Verdict on a bead not in phase:review must be rejected.
 if in_scratch bash "$SCRIPT_DIR/review-verdict.sh" "$NEG" --fail --reason "smoke" >/dev/null 2>&1; then
-  die "step h: review-verdict.sh accepted a bead not in phase:review + review state"
+  die "step h: review-verdict.sh accepted a bead not in phase:review"
 fi
 ok
 

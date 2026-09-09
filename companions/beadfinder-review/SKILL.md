@@ -29,7 +29,7 @@ scripts/session-boot.sh --parent <impl-epic-id> --persona reviewer
 CLAIM_JSON=$(scripts/claim-next.sh --parent <impl-epic-id> --persona reviewer)
 TASK_ID=$(echo "$CLAIM_JSON" | jq -r '.[0].id')
 ```
-Review-queue beads carry the `phase:review` phase label and the `review` persona label, which is what the scripts filter on.
+`claim-next.sh` / `frontier.sh` filter on `phase:review` (mapped from `--persona reviewer`). The `review` role label is optional metadata, not a dispatch key.
 
 ### 2. Inspect the Bead
 ```bash

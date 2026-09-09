@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Handoff T1: move a finished build bead from implement to the review queue.
-# Valid only from phase:implement + implementation (and not closed); unassigns
-# and reopens so bd ready stays the single discovery mechanism for the reviewer.
+# Valid only from phase:implement (and not closed); unassigns and reopens so
+# bd ready stays the single discovery mechanism for the reviewer. Role labels
+# are optional metadata and are left as-is.
 set -euo pipefail
 
 usage() {
@@ -44,12 +45,12 @@ if [[ "$(jq -r '.status' <<<"$bead")" == "closed" ]]; then
   exit 1
 fi
 
-if ! jq -e '.labels | contains(["phase:implement", "implementation"])' >/dev/null <<<"$bead"; then
-  echo '{"error":"bead not in phase:implement + implementation state","id":"'"$ID"'"}' >&2
+if ! jq -e '.labels | contains(["phase:implement"])' >/dev/null <<<"$bead"; then
+  echo '{"error":"bead not in phase:implement state","id":"'"$ID"'"}' >&2
   exit 1
 fi
 
-bd update "$ID" --remove-label phase:implement --remove-label implementation \
-  --add-label phase:review --add-label review --assignee "" --status open --json
+bd update "$ID" --remove-label phase:implement \
+  --add-label phase:review --assignee "" --status open --json
 
 bd comment "$ID" "${SUMMARY:-Submitted for review.}" >/dev/null

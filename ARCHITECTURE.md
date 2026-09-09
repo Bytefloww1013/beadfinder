@@ -58,7 +58,7 @@ handoff edges below. Exactly one `phase:*` label per bead at any time.
 |---|---|---|---|---|
 | G1 | plan drained → requirements slice | wayfinder | creates `beadfinder:slice` epic with `phase:requirements`; `/beadfinder-to-spec` compiles SPEC.md | requirements slice epic |
 | G2 | SPEC validated → design slice | wayfinder | creates design slice epic (`phase:design`); blocking `architect` workers write ARCHITECTURE.md / IMPLEMENTATION.md sections | design slice epic |
-| T4 | design artifacts done → build DAG | wayfinder | `/beadfinder-to-tickets` creates `phase:implement` + `implementation` beads under the build slice | slice epic + build beads |
+| T4 | design artifacts done → build DAG | wayfinder | `/beadfinder-to-tickets` creates `phase:implement` beads under the build slice (role label `implementation` is optional metadata) | slice epic + build beads |
 | T1 | build done → review queue | implementer | `scripts/review-submit.sh <id>` | comment "Submitted for review" with evidence summary |
 | T2 | review pass → closed | reviewer | `bd close <id> --reason "Review PASS: quality X/10, correctness Y/10, pillars Z/10. <gist>"` | close reason (scores mandatory); wayfinder appends gist via `append-decision.py` |
 | T3 | review fail → rework | reviewer | `scripts/review-verdict.sh <id> --fail --reason "<scores + ranked issues>"` — the script posts the reason as the bead's comment, then swaps labels back | comment "Review FAIL" (posted by the script) |
@@ -74,10 +74,16 @@ Rules that hold across all phases:
    Hand-rolled `bd update` label swaps strand work. The only two legal moves are
    `phase:implement → phase:review` (`review-submit.sh`) and
    `phase:review → phase:implement` (`review-verdict.sh --fail`).
-2. **Phase and persona labels move together, atomically**, and the handoff scripts
-   **unassign + reopen** the bead so `bd ready --unassigned` remains the single
-   discovery mechanism for the next worker. The scripts verify the bead's current
-   label pair before swapping and exit non-zero otherwise (idempotent-safe).
+2. **Exactly one `phase:*` label is the canonical state.** Role labels
+   (`wayfind`, `research`, `architect`, `implementation`, `review`, `product`)
+   are optional informational tags — never required for queue discovery or
+   handoff. Missing a role label must not strand a bead. Handoff scripts swap
+   only `phase:implement` ↔ `phase:review` and **unassign + reopen** the bead
+   so `bd ready --unassigned` remains the single discovery mechanism for the
+   next worker. They verify the current phase label before swapping and exit
+   non-zero otherwise (idempotent-safe). Role labels, if present, are left as-is.
+   New beads SHOULD still set a role label at creation for humans, but MUST
+   set the phase label; workers and scripts must not require the role label.
 3. **Slice/destination epics keep their phase label and are never submitted for
    review** — review is per bead, never per epic (no separate review tickets).
 4. **The comment stream is the event log.** bd comments carry submit notices (T1),
@@ -113,14 +119,18 @@ retained); a missing requirement discovered in design becomes a `phase:requireme
 | Concept | Values | Set by |
 |---|---|---|
 | Phase label | `phase:plan` `phase:requirements` `phase:design` `phase:implement` `phase:review` | creation; handoff scripts for implement↔review |
-| Persona (role) label | `wayfind` `research` `architect` `implementation` `review` `product` | creation; `review-submit.sh` for review |
+| Persona (role) label | `wayfind` `research` `architect` `implementation` `review` `product` | creation (optional metadata; never a dispatch key) |
 | Mode label | `hitl` `afk` | creation |
 | Graph labels | `beadfinder:destination` `beadfinder:slice` `beadfinder:grill` `beadfinder:research` `beadfinder:prototype` | creation |
 | Script persona arg | `wayfinder` `research` `architect` `implementer` `reviewer` `product` | operator |
 
-Mapping (script arg → role label): `wayfinder→wayfind`, `research→research`,
-`architect→architect`, `implementer→implementation`, `reviewer→review`,
-`product→product`.
+Mapping (script arg → phase label, used by `frontier.sh` / `claim-next.sh`):
+`wayfinder→phase:plan`, `research→phase:requirements`,
+`architect→phase:design`, `implementer→phase:implement`,
+`reviewer→phase:review`, `product→phase:requirements`.
+Dispatch scripts query `--label phase:<name>` derived from the persona arg.
+Role labels remain optional metadata for humans; new beads SHOULD still set
+one at creation, but workers and scripts MUST NOT require it.
 
 **Backward compatibility:** beads labeled `wayfinder` or `architecture` (v0.6 role labels)
 are still routed by the hook layer (`personaFromRoleLabel` keeps both aliases), but new
@@ -162,7 +172,7 @@ agents/plugin into the target harness. Any new file must be reachable through it
 
 ## 4. Why this holds up (dry-runs played out)
 
-1. **Heavy use / many sessions**: every queue is scoped `--parent <slice>` + persona label,
+1. **Heavy use / many sessions**: every queue is scoped `--parent <slice>` + `phase:*` label,
    so two sessions working requirements and design never see each other's beads. Claiming
    is atomic (`bd ready --claim`), so parallel builders cannot double-claim.
 2. **A phase goes wrong**: artifacts gate phase exits. A bad SPEC fails to-spec's checklist
@@ -173,8 +183,10 @@ agents/plugin into the target harness. Any new file must be reachable through it
    bead to the implement queue and the loop has no cap. Nothing closes without three ≥ 8
    scores. Same for this repo's own overhaul (docs/STATUS.json records module scores).
 4. **Label drift**: the hook layer maps role labels → personas in one function
-   (`personaFromRoleLabel`); scripts map args → role labels in one `case` each. Two small
-   tables, both updated in lockstep, both smoke-tested by `verify-review-flow.sh`.
+   (`personaFromRoleLabel`); dispatch scripts map persona args → `phase:*` labels
+   in one `case` each. Role labels are optional metadata and are not a discovery
+   key, so a missing role label cannot strand a bead. Handoff is smoke-tested
+   by `verify-review-flow.sh`.
 5. **Old packs in the wild**: role-label aliases keep v0.6 beads routable; the handoff
    scripts are unchanged in shape, so an old install degrades gracefully.
 
@@ -186,15 +198,16 @@ agents/plugin into the target harness. Any new file must be reachable through it
 - **Implementer cannot self-pass**: `bd close` of a bead carrying `phase:review`/`review`
   by an implementer persona is rejected by the plugin close-guard; reviewer closes must
   record all three scores.
-- **Label drift cannot strand work**: the only writers of the phase/persona swap are the
-  two handoff scripts, which verify the bead's current labels before swapping and exit
-  non-zero with a JSON error otherwise.
+- **Label drift cannot strand work**: the only writers of the phase swap are the
+  two handoff scripts, which verify the bead's current `phase:*` label before swapping
+  and exit non-zero with a JSON error otherwise. Missing a role label is not an error.
 - **Empty frontier stops, never invents**: `claim-next.sh` exit 2 ⇒ worker reports and
   stops; the plugin's `empty-frontier-stop` gate blocks product writes after it.
 - **Claim loss is survivable**: `bd ready` excludes stale claims; yield-on-stop releases
   claims so one crashed session never blocks the DAG.
-- `review-submit.sh` / `review-verdict.sh` validate the bead's exact label pair before
-  moving it; wrong state = JSON error, exit 1, no mutation.
+- `review-submit.sh` / `review-verdict.sh` validate the bead's `phase:*` label before
+  moving it; wrong state = JSON error, exit 1, no mutation. They swap only
+  `phase:implement` ↔ `phase:review` and leave role labels untouched.
 - Kill switch `BEADFINDER_HOOKS=off`; debug trail via the `beadfinder-debug` companion.
 - Tracker dir is `.beads/` — never glob `beads/`.
 - **One broken module never takes the pack down**: hooks fail soft; scripts fail loud

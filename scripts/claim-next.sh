@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Atomically claim the next ready ticket for a slice + persona.
 # Uses bd ready --claim (one transaction). Do not select-then-claim in two steps.
+# Discovery key is the phase:* label mapped from --persona, not a role label.
 set -euo pipefail
 
 usage() {
@@ -30,16 +31,16 @@ if ! command -v bd >/dev/null 2>&1; then
 fi
 
 case "$PERSONA" in
-  wayfinder) ROLE_LABEL="wayfind" ;;
-  research) ROLE_LABEL="research" ;;
-  architect) ROLE_LABEL="architect" ;;
-  implementer) ROLE_LABEL="implementation" ;;
-  reviewer) ROLE_LABEL="review" ;;
-  product) ROLE_LABEL="product" ;;
+  wayfinder) PHASE_LABEL="phase:plan" ;;
+  research) PHASE_LABEL="phase:requirements" ;;
+  architect) PHASE_LABEL="phase:design" ;;
+  implementer) PHASE_LABEL="phase:implement" ;;
+  reviewer) PHASE_LABEL="phase:review" ;;
+  product) PHASE_LABEL="phase:requirements" ;;
   *) echo "unknown persona: $PERSONA" >&2; exit 1 ;;
 esac
 
-args=(ready --parent "$PARENT" --label "$ROLE_LABEL" --unassigned --claim --limit 1 --json)
+args=(ready --parent "$PARENT" --label "$PHASE_LABEL" --unassigned --claim --limit 1 --json)
 if [[ -n "$EXTRA_LABEL" ]]; then
   args+=(--label "$EXTRA_LABEL")
 fi

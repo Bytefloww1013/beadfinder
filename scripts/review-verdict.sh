@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Handoff T3: reviewer verdict on a bead in the review queue.
+# Valid only from phase:review (role labels are optional and left as-is).
 # Smoke-free contract: --pass closes the bead; the reason must carry
 # "Review PASS" and the three N/10 scores (validated here). --fail posts the
-# reason as a comment and sends the bead back to implement.
+# reason as a comment and swaps only the phase label back to implement.
 set -euo pipefail
 
 usage() {
@@ -64,8 +65,8 @@ if [[ "$(jq -r '.status' <<<"$bead")" == "closed" ]]; then
   exit 1
 fi
 
-if ! jq -e '.labels | contains(["phase:review", "review"])' >/dev/null <<<"$bead"; then
-  echo '{"error":"bead not in phase:review + review state","id":"'"$ID"'"}' >&2
+if ! jq -e '.labels | contains(["phase:review"])' >/dev/null <<<"$bead"; then
+  echo '{"error":"bead not in phase:review state","id":"'"$ID"'"}' >&2
   exit 1
 fi
 
@@ -105,5 +106,5 @@ if [[ -n "$PASS" ]]; then
 fi
 
 bd comment "$ID" "$REASON" >/dev/null
-bd update "$ID" --remove-label phase:review --remove-label review \
-  --add-label phase:implement --add-label implementation --assignee "" --status open --json
+bd update "$ID" --remove-label phase:review \
+  --add-label phase:implement --assignee "" --status open --json

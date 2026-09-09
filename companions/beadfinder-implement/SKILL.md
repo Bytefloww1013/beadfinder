@@ -31,7 +31,7 @@ scripts/session-boot.sh --parent <impl-epic-id> --persona implementer
 CLAIM_JSON=$(scripts/claim-next.sh --parent <impl-epic-id> --persona implementer)
 TASK_ID=$(echo "$CLAIM_JSON" | jq -r '.[0].id')
 ```
-Tickets carry the `implementation` persona label, which is what the scripts filter on.
+`claim-next.sh` / `frontier.sh` filter on `phase:implement` (mapped from `--persona implementer`). The `implementation` role label is optional metadata, not a dispatch key.
 
 ### 2. Inspect Task & Load Project Context
 ```bash

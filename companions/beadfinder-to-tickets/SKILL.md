@@ -77,12 +77,12 @@ Acceptance Criteria:
 - [ ] Typecheck passes without errors"
 ```
 
-The `implementation` persona label is what `claim-next.sh --persona implementer` filters on; every build bead MUST carry it. Labels are explicit, never inherited — `--no-inherit-labels` keeps parent-epic labels off build beads.
+Every build bead MUST carry `phase:implement` (the dispatch key). The `implementation` role label is optional metadata for humans — keep it in the create example, but `claim-next.sh --persona implementer` / `frontier.sh` filter on `phase:implement`, not the role label. Labels are explicit, never inherited — `--no-inherit-labels` keeps parent-epic labels off build beads.
 
 ### 3. Review is per-bead
 Every build bead cycles the phase pipeline (see ARCHITECTURE.md): the implementer submits it with `scripts/review-submit.sh`, the reviewer closes it on a passing review or fails it back for rework. No separate review ticket is created.
 
-Build beads carry the `implementation` persona label; the `review` label is applied by the handoff script when the bead enters the review phase, not at creation.
+Handoff scripts swap only `phase:implement` ↔ `phase:review`; they do not add or remove role labels. A missing `implementation` / `review` role label must not strand a bead.
 
 Implementers may request emergent tickets via `--deps discovered-from:<current-id>`, but only the wayfinder runs this skill to slice them; never re-slice settled tickets.
 
