@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { evaluateCloseGuard, parseRubricScores } from "./policy-core.ts";
+import { evaluateCloseGuard, parseRubricScores } from "../../core/lib/policy-core.ts";
 
 describe("evaluateCloseGuard", () => {
   test("valid scores at or above the pass bar pass", () => {

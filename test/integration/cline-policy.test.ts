@@ -2,9 +2,9 @@ import { describe, expect, test, beforeEach, afterEach, spyOn } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createBeadfinder } from "./policy.ts";
-import * as bd from "./bd.ts";
-import { loadState, saveState } from "./state.ts";
+import { createBeadfinder } from "../../adapters/cline/plugins/beadfinder/lib/policy.ts";
+import * as bd from "../../adapters/cline/plugins/beadfinder/lib/bd.ts";
+import { loadState, saveState } from "../../adapters/cline/plugins/beadfinder/lib/state.ts";
 
 let fakeIssue: Record<string, unknown> | null = null;
 
@@ -104,7 +104,7 @@ describe("Cline policy hooks", () => {
     st.persona = "implementer";
     st.lastSnapshot = "Live Beads snapshot (do not trust earlier chat for ticket status): none";
     saveState(dir, sessionID, st);
-    const { PolicyEngine } = await import("./engine.ts");
+    const { PolicyEngine } = await import("../../adapters/cline/plugins/beadfinder/lib/engine.ts");
     const context = new PolicyEngine({
       directory: dir,
       notify: async () => {},

@@ -113,6 +113,9 @@ if [[ "$DEBUG" -eq 1 ]]; then
   cp "$PACK/scripts/debug-log.py" "$SKILLS/beadfinder/scripts/"
 fi
 
+# session-boot.sh calls frontier.sh by path; 100644 copies fail with Permission denied
+find "$SKILLS" -type f -name '*.sh' -exec chmod a+x {} +
+
 if [[ "$HARNESS" == "omp" ]]; then
   cp "$PACK/adapters/ohmypi/agents/"*.md "$AGENTS/"
   EXT_ROOT="$ROOT/extensions"
@@ -140,7 +143,6 @@ elif [[ "$HARNESS" == "cline" ]]; then
   cp "$PACK/adapters/cline/plugins/beadfinder/package.json" "$DEST_PLUGIN/"
   cp "$PACK/adapters/cline/plugins/beadfinder/index.ts" "$DEST_PLUGIN/"
   cp -R "$PACK/adapters/cline/plugins/beadfinder/lib" "$DEST_PLUGIN/lib"
-  find "$DEST_PLUGIN" -type f -name '*.test.ts' -delete 2>/dev/null || true
   echo "plugin in  $DEST_PLUGIN"
   echo "Cline loads plugins from .cline/plugins (or ~/.cline/plugins with --global)"
   echo "kill switch: BEADFINDER_HOOKS=off"
@@ -156,7 +158,6 @@ else
   cp "$PACK/adapters/opencode/plugins/beadfinder.ts" "$PLUGIN_ROOT/beadfinder.ts"
   mkdir -p "$PLUGIN_ROOT/beadfinder"
   cp -R "$PACK/adapters/opencode/plugins/beadfinder/lib" "$PLUGIN_ROOT/beadfinder/lib"
-  find "$PLUGIN_ROOT/beadfinder" -type f -name '*.test.ts' -delete 2>/dev/null || true
   echo "plugin in  $PLUGIN_ROOT/beadfinder.ts"
   echo "OpenCode loads .opencode/plugins/*.ts (or ~/.config/opencode/plugins with --global)"
   echo "kill switch: BEADFINDER_HOOKS=off"

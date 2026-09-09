@@ -2,11 +2,22 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { appendLine, debugLogPath, hooksDisabled, hostRoot, packStateDir, posixish, readJson, relToCwd, statePath, writeJson } from "./fsutil.ts";
+import {
+  appendLine,
+  debugLogPath,
+  hooksDisabled,
+  hostRoot,
+  packStateDir,
+  posixish,
+  readJson,
+  relToCwd,
+  statePath,
+  writeJson,
+} from "../../core/lib/fsutil.ts";
 
-describe("OMP fsutil paths", () => {
+describe("host path resolution", () => {
   test("state paths nest under .omp/beadfinder/ when that host dir exists", () => {
-    const cwd = mkdtempSync(join(tmpdir(), "omp-bf-host-"));
+    const cwd = mkdtempSync(join(tmpdir(), "bf-host-"));
     mkdirSync(join(cwd, ".omp", "beadfinder"), { recursive: true });
     expect(hostRoot(cwd)).toBe(join(cwd, ".omp"));
     expect(packStateDir(cwd)).toBe(join(cwd, ".omp", "beadfinder"));
@@ -23,7 +34,7 @@ describe("OMP fsutil paths", () => {
 
 describe("readJson / writeJson", () => {
   test("writeJson creates directories and writes pretty JSON with trailing newline", () => {
-    const dir = mkdtempSync(join(tmpdir(), "omp-bf-fs-"));
+    const dir = mkdtempSync(join(tmpdir(), "bf-fs-"));
     const file = join(dir, "nested", "deeper", "state.json");
     writeJson(file, { persona: "implementer", claims: 2 });
     expect(existsSync(file)).toBe(true);
@@ -33,14 +44,14 @@ describe("readJson / writeJson", () => {
   });
 
   test("readJson returns the file contents when present", () => {
-    const dir = mkdtempSync(join(tmpdir(), "omp-bf-fs-"));
+    const dir = mkdtempSync(join(tmpdir(), "bf-fs-"));
     const file = join(dir, "data.json");
     writeJson(file, { ok: true });
     expect(readJson(file, { ok: false })).toEqual({ ok: true });
   });
 
   test("readJson returns the fallback for missing or corrupt files", () => {
-    const dir = mkdtempSync(join(tmpdir(), "omp-bf-fs-"));
+    const dir = mkdtempSync(join(tmpdir(), "bf-fs-"));
     const fallback = { fallback: true };
     expect(readJson(join(dir, "missing.json"), fallback)).toBe(fallback);
     const bad = join(dir, "bad.json");
@@ -49,7 +60,7 @@ describe("readJson / writeJson", () => {
   });
 
   test("appendLine adds newline-terminated lines and creates the dir", () => {
-    const dir = mkdtempSync(join(tmpdir(), "omp-bf-fs-"));
+    const dir = mkdtempSync(join(tmpdir(), "bf-fs-"));
     const file = join(dir, "logs", "out.log");
     appendLine(file, "first");
     appendLine(file, "second\n");

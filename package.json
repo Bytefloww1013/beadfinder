@@ -1,7 +1,10 @@
 {
   "name": "beadfinder",
+  "version": "0.7.0",
   "private": true,
   "scripts": {
+    "test": "bun test test/",
+    "test:smoke": "bash scripts/verify-review-flow.sh && bash scripts/verify-install.sh",
     "sync": "bun scripts/sync-adapters.ts",
     "verify:sync": "bun scripts/sync-adapters.ts --check"
   }

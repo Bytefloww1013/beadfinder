@@ -47,7 +47,7 @@ The beadfinder plugin is installed to `.cline/plugins/beadfinder/`:
     bd.ts          ← bd CLI wrapper & issue helpers
     log.ts         ← debug logging & status advisor
 ```
-Test files (`*.test.ts`) are pruned upon install.
+Tests live under `test/` and are not shipped in the plugin tree.
 
 ## Permissions & Policy Enforcement
 
