@@ -1,6 +1,6 @@
 # Beadfinder hooks — human reference
 
-v0.7.0. Oh My Pi, OpenCode, and Cline.
+v0.8.0. Oh My Pi, OpenCode, and Cline.
 
 These hooks sit on harness events. The model cannot talk them out of a block. Skills still explain the rules; hooks refuse the move.
 
@@ -62,6 +62,7 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 - Reminds the agent that the store is `.beads/`, not `beads/`.
 - Injects that live snapshot into the session.
 - If hook state still has a claimed id, tells the agent to `bd show` it before acting.
+- **Deduplication behavior:** when `session-boot.sh` is executed by the agent, the live snapshot is recorded into state cache (`lastSnapshot`, `lastSnapshotHash`, `lastRefreshAt`) without injecting a duplicate synthetic notification into chat history, eliminating redundant token overhead since `session-boot.sh` already outputs the projection to stdout.
 
 **Why:** chat memory goes stale. `--status open` plus `--type epic` missed ready `in_progress` work (the 0.3 debug log: snapshot said none, `bd ready` still had the Auth slice). Two `--status` flags on one command silently overwrite; 0.3.1's two-query session-boot also printed two JSON arrays, so a parser could see `[]` and stop.
 
@@ -77,6 +78,7 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 - Re-reads live Beads.
 - If the claimed id is `closed` / `done` on disk, injects a warning and clears the claim in hook state.
 - Reminds the model not to trust an older `bd ready` paste.
+- **Deduplication behavior:** compares snapshot hashes (`lastSnapshotHash`); if `session-boot.sh` or an earlier turn already cached the snapshot and no status has changed, no duplicate synthetic notification is injected into chat history.
 
 **Throttle:** `BEADFINDER_REFRESH_MS` (default 45000).
 
@@ -230,9 +232,9 @@ A blocked tool error starts with `[beadfinder:<hook>]`. That name matches a sect
 
 **When:** OMP is about to compact the session (`session.compacting`). OpenCode uses `experimental.session.compacting` (before the summary is written).
 
-**Does:** stuffs claimed id, slice id, persona, and the last live snapshot into compact context.
+**Does:** returns a lean active-rules state into compact context (`[beadfinder-active-state] Persona: ... | Active Slice: ... | Claimed Task: ...`). If a ticket is currently claimed, it appends an active rule directive (`[active-rules] Implement only ticket <id>. Submit via scripts/review-submit.sh. Do not close directly.`). It omits the full snapshot payload to preserve token budget while locking critical invariants across compactions.
 
-**Why:** compact is how agents forget they already decided the rate-limit key.
+**Why:** compact is how agents forget they already decided the rate-limit key, but re-injecting full snapshots during compaction wastes tokens.
 
 ---
 

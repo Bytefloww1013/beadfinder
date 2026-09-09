@@ -2,7 +2,7 @@
 name: beadfinder
 description: Multi-session architectural wayfinding powered by Beads (bd). Charts exhaustive decision DAGs through plan → requirements → design → implement ⇄ review and hands off a reviewed implementation. Use when planning large, complex, or ambiguous software projects, or when the user invokes /beadfinder or /wayfinder.
 metadata:
-  version: "0.7.0"
+  version: "0.8.0"
   tracker: beads
 ---
 
@@ -52,6 +52,7 @@ Agree the destination, create a `beadfinder:destination` epic (`phase:plan`), se
 
 - HITL (`beadfinder:grill`, `beadfinder:prototype`, `product` questions) stays in the parent. Never invent the human's answer.
 - `research` spawns parallel and non-blocking (`/beadfinder-research`). Everyone else blocks.
+- Worker subagents load their dedicated companion skill directly (`implementer` loads `beadfinder-implement`; `reviewer` loads `beadfinder-review`), omitting the root orchestrator skill for token efficiency.
 - Build: one blocking `/beadfinder-implement` per ticket; one blocking `/beadfinder-review` per submitted bead. Fail → fix → re-submit; loop until pass.
 - Child prompt: title, id, parent epic, decision gists, "one ticket only", "claim before work".
 
@@ -64,6 +65,7 @@ Run from this skill's `scripts/` (installer copies it next to this file).
 - `claim-next.sh --parent <epic> --persona <name>` — atomic pick+claim; exit 2 = empty frontier, stop and report
 - `review-submit.sh <id> [--summary "..."]` — `phase:implement` → `phase:review` (reopen + unassign)
 - `review-verdict.sh <id> --pass|--fail --reason "..."` — pass closes; fail swaps back to `phase:implement`
+- `test-run.sh <command>` — run verification tests with output compression (15-line tail on pass, focused failure excerpts)
 - `verify-review-flow.sh` — smoke-test the review loop against a scratch store
 - `append-decision.py --epic <epic> --title "..." --id <ticket> --gist "..."` — append a gist to a destination or slice epic
 

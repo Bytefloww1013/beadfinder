@@ -2,7 +2,7 @@
 name: beadfinder-implement
 description: Deterministic implementation executor for Beads tasks. Claims and executes single unblocked tasks from bd ready label phase:implement using strict TDD, static verification, and submit-for-review handoff. Trigger with /beadfinder-implement.
 metadata:
-  version: "0.7.0"
+  version: "0.8.0"
 ---
 
 # Beadfinder: Implementation Worker
@@ -40,10 +40,11 @@ bd prime
 ```
 
 ### 3. Implement via TDD
+Execute verification using `scripts/test-run.sh <test-command>` to avoid context flooding from verbose test logs.
 1. Create or update the test file specified in the bead.
-2. Execute the verification test command and confirm failure.
+2. Execute the verification test command via `scripts/test-run.sh <test-command>` and confirm failure.
 3. Implement the feature logic in the target files.
-4. Re-run the verification command and confirm it passes.
+4. Re-run the verification command via `scripts/test-run.sh <test-command>` and confirm it passes.
 5. Run the repository typechecker and linter.
 
 ### 4. Submit for Review & Hand Off

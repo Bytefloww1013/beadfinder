@@ -1,7 +1,7 @@
 {
-  "version": "0.7.0",
-  "updated": "2026-09-06T09:45:00Z",
-  "round": 4,
+  "version": "0.8.0",
+  "updated": "2026-09-09T17:20:00Z",
+  "round": 5,
   "pass_bar": "all three rubric dimensions >= 8 (references/review-rubric.md; now literally enforced by scripts/review-verdict.sh --pass)",
   "modules": {
     "scripts": {
@@ -15,7 +15,7 @@
         "agent-workflow-change-cny.4",
         "agent-workflow-change-cny.10"
       ],
-      "notes": "scratch-store smoke test 12 assertions; pass-reason format AND >=8 threshold enforced"
+      "notes": "scratch-store smoke test 12 assertions; pass-reason format AND >=8 threshold enforced; test-run.sh compressor and session-boot.sh projection verified (Wave 1)"
     },
     "references": {
       "scores": {
@@ -25,7 +25,7 @@
       },
       "status": "pass",
       "bead": "agent-workflow-change-cny.5",
-      "notes": "requirements question example byte-identical to cited companion tuple; plan grill example carries wayfind; DAG example matches its own prose"
+      "notes": "requirements question example byte-identical to cited companion tuple; plan grill example carries wayfind; DAG example matches its own prose; test-run.sh verification integrated into beads-ops (Wave 1)"
     },
     "companions": {
       "scores": {
@@ -35,7 +35,7 @@
       },
       "status": "pass",
       "bead": "agent-workflow-change-cny.6",
-      "notes": "to-spec single-sourced at requirements exit (G2 citation), non-vacuous gate, interface-level boundary line; polish nits applied post-pass"
+      "notes": "to-spec single-sourced at requirements exit (G2 citation), non-vacuous gate, interface-level boundary line; polish nits applied post-pass; metadata version 0.8.0 bumped (Wave 1)"
     },
     "agents": {
       "scores": {
@@ -45,7 +45,7 @@
       },
       "status": "pass",
       "bead": "agent-workflow-change-cny.7",
-      "notes": "reviewer fail clause single-post with --reason; research covers plan+requirements+design; plan-stage architect spawn + close --reason added post-pass"
+      "notes": "reviewer fail clause single-post with --reason; research covers plan+requirements+design; plan-stage architect spawn + close --reason added post-pass; worker skill decoupling verified (Wave 1)"
     },
     "adapters": {
       "scores": {
@@ -55,7 +55,7 @@
       },
       "status": "pass",
       "bead": "agent-workflow-change-cny.7",
-      "notes": "phase-gate widened (v0.7 + legacy) both policy.ts; ohmypi st.mode written (yield-on-stop live); research persona wired end-to-end incl. allowlists + agent mirrors (all three research descriptions byte-consistent); extractFirstId tightened; bun 33/33; known trade: ohmypi lib duplicates harness-independent helpers, no ohmypi test suite"
+      "notes": "phase-gate widened (v0.7 + legacy) both policy.ts; ohmypi st.mode written (yield-on-stop live); research persona wired end-to-end incl. allowlists + agent mirrors; tools-core canonical unification with adapter shim cleanup; snapshot deduplication verified (Wave 1)"
     },
     "adapters/cline": {
       "scores": {
@@ -64,7 +64,7 @@
         "pillars": 9
       },
       "status": "pass",
-      "notes": "adapters/cline plugin (beforeTool/afterTool/beforeRun/afterRun) + agents (.md/.yaml) + install.sh integration; test suite 38/38 pass"
+      "notes": "adapters/cline plugin (beforeTool/afterTool/beforeRun/afterRun) + agents (.md/.yaml) + install.sh integration; test suite 38/38 pass; tools-core canonical unification (Wave 1)"
     },
     "root": {
       "scores": {
@@ -74,7 +74,7 @@
       },
       "status": "pass",
       "bead": "agent-workflow-change-cny.8",
-      "notes": "positional bd close eliminated; destination-epic finale three-way consistent (bd comment, never close); diagram/G-rows/rules 1-9 coherent; install.sh dead AGENTS.md.snippet echo removed; SKILL rule-4 named-claim carve-out stated"
+      "notes": "positional bd close eliminated; destination-epic finale three-way consistent (bd comment, never close); diagram/G-rows/rules 1-9 coherent; install.sh dead AGENTS.md.snippet echo removed; SKILL rule-4 named-claim carve-out stated; v0.8.0 release verified"
     }
   },
   "weakest_module": null,
@@ -130,6 +130,10 @@
     {
       "round": 4,
       "result": "FINAL GATE 8/10 + post-gate fixes (STATUS.json refresh, research mirror alignment, >=8 threshold enforcement cny.10 9/9/9, install/skill nits)"
+    },
+    {
+      "round": 5,
+      "result": "PASS \u2014 Token efficiency overhaul (snapshot deduplication, session-boot.sh projection, test-run.sh compressor); tool classification unification in core/lib/tools-core.ts with adapter shim cleanup; worker skill decoupling across all harnesses; all module scores verified passing (>= 8/10, verified in Wave 1)."
     }
   ],
   "process_notes": [
@@ -144,6 +148,9 @@
     "install.sh structurally live-verified: scripts/verify-install.sh 8/8 PASS across omp/opencode/cline x global + omp debug + --dest override; ~/.omp/agent confirmed against README and docs/harness-ohmypi.md",
     "policy close-guard extracted to core/lib/policy-core.ts (evaluateCloseGuard) \u2014 single implementation of bounds [1,10] + pass bar >= 8 across all three adapters",
     "tools tokenizer extracted to core/lib/tools-core.ts; flagValue first-wins bug fixed to last-wins; cline tools.test.ts describe-block structure repaired",
-    "listLive per-status fallback fixed: parses res.raw so an old bd CLI rejecting the combined --status query still recovers results (was a dead fallback)"
+    "listLive per-status fallback fixed: parses res.raw so an old bd CLI rejecting the combined --status query still recovers results (was a dead fallback)",
+    "Token efficiency overhaul: snapshot deduplication in engine.ts (state cache updated on session-boot.sh without duplicate chat injection), session-boot.sh issue projection, and test-run.sh compressor",
+    "Tool classification unification in core/lib/tools-core.ts with canonical sets and minimal adapter shim re-exports across OMP, OpenCode, and Cline",
+    "Worker skill decoupling across all harnesses, eliminating redundant skill loading and keeping prompts as the single contract"
   ]
 }

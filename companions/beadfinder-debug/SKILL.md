@@ -2,7 +2,7 @@
 name: beadfinder-debug
 description: Same orchestrator as beadfinder, plus advisor logging to .opencode/beadfinder-debug.log or .omp/beadfinder-debug.log. Use when a session is mis-reading bead status, skipping claims, or you need a trail of hook blocks and agent concerns.
 metadata:
-  version: "0.7.0"
+  version: "0.8.0"
   tracker: beads
   debug: true
 ---
@@ -19,6 +19,7 @@ Write every error, warning, or concern — yours or the hook advisor's — to th
 
 - OpenCode: `.opencode/beadfinder-debug.log`
 - Oh My Pi: `.omp/beadfinder-debug.log`
+- Cline: `.cline/beadfinder-debug.log`
 
 Use the pack script (from the installed skill `scripts/` directory, or this companion's copy):
 

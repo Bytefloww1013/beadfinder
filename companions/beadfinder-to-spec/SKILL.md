@@ -2,7 +2,7 @@
 name: beadfinder-to-spec
 description: Compiles closed plan decision beads and requirement beads into SPEC.md, the Software Requirements Specification. Trigger at the end of the Requirements stage. Trigger with /beadfinder-to-spec.
 metadata:
-  version: "0.7.0"
+  version: "0.8.0"
 ---
 
 # Beadfinder: Specification Compiler (`to-spec`)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verify-install.sh — structural live-verification of install.sh.
+# verify-install.sh — structural live-verification of install.sh (v0.8.0).
 #
 # For every harness/flag combination (--omp, --opencode, --cline, and each
 # with --global, plus --omp --debug and --omp --dest) this script executes install.sh into a
@@ -45,6 +45,8 @@ check_common() {
     assert_file "$root/skills/beadfinder-$c/SKILL.md"
   done
   assert_file "$root/agents/reviewer.md"
+  assert_file "$root/skills/beadfinder/scripts/test-run.sh"
+  [[ -x "$root/skills/beadfinder/scripts/test-run.sh" ]] || fail "$RUN" "test-run.sh missing or not executable: $root/skills/beadfinder/scripts/test-run.sh"
   local badsh
   badsh="$(find "$root/skills" -type f -name '*.sh' ! -perm -u+x)"
   [[ -z "$badsh" ]] || fail "$RUN" "non-executable skill scripts:

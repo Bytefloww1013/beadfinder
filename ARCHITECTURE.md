@@ -1,6 +1,6 @@
 # ARCHITECTURE.md — beadfinder phase machine
 
-v0.7.0. This is the normative design. SKILL.md is the operator's view; this file is the
+v0.8.0. This is the normative design. SKILL.md is the operator's view; this file is the
 machine underneath it. Everything referenced elsewhere (`references/review-rubric.md`
 §ARCHITECTURE.md, `references/micro-ticket-templates.md`, `companions/*`) points here.
 
@@ -49,8 +49,8 @@ handoff edges below. Exactly one `phase:*` label per bead at any time.
 | Plan | `phase:plan` | `wayfind` | `wayfinder` | wayfinder parent (HITL) + spawned research | 10 Pillars, user answers | decision beads, Decisions-so-far | `bd ready --label phase:plan` empty under the map epic |
 | Requirements | `phase:requirements` | `research` | `research` | spawned AFK research + product (HITL) | closed plan beads, `bd remember` memory, repo | SPEC.md via `/beadfinder-to-spec` | to-spec zero-open-bead gate passes; SPEC quality checklist passes |
 | Design | `phase:design` | `architect` | `architect` | blocking `architect` subagents | SPEC.md, codebase, research beads | ARCHITECTURE.md + IMPLEMENTATION.md, then ticket DAG via `/beadfinder-to-tickets` | artifacts written; build frontier non-empty |
-| Implement | `phase:implement` | `implementation` | `implementer` | blocking `implementer` subagents | ticket contract, ARCHITECTURE.md, SPEC.md | code + tests | `scripts/review-submit.sh` |
-| Review | `phase:review` | `review` | `reviewer` | blocking `reviewer` subagents | diff, ticket contract | review verdict | all three scores ≥ 8, else fail back to implement |
+| Implement | `phase:implement` | `implementation` | `implementer` | blocking `implementer` subagents (`beadfinder-implement`) | ticket contract, ARCHITECTURE.md, SPEC.md | code + tests | `scripts/review-submit.sh` |
+| Review | `phase:review` | `review` | `reviewer` | blocking `reviewer` subagents (`beadfinder-review`) | diff, ticket contract | review verdict | all three scores ≥ 8, else fail back to implement |
 
 ### Transitions (the T-numbers are cited by script headers and the rubric)
 
@@ -134,7 +134,7 @@ one at creation, but workers and scripts MUST NOT require it.
 
 **Backward compatibility:** beads labeled `wayfinder` or `architecture` (v0.6 role labels)
 are still routed by the hook layer (`personaFromRoleLabel` keeps both aliases), but new
-beads must use the v0.7 labels. Migrate stale open beads with
+beads must use the canonical v0.8 labels. Migrate stale open beads with
 `bd update <id> --remove-label architecture --add-label architect` (same for
 `wayfinder→wayfind`). Closed history stays as-is; do not rewrite closed beads.
 
@@ -153,11 +153,11 @@ integrator. The hook layer (`paths.ts personaWall`) encodes the same walls.
 
 | Folder | Subsystem | Owner persona | Depends on | Never touches |
 |---|---|---|---|---|
-| `scripts/` | bd queue plumbing: session-boot, frontier, claim-next, review-submit, review-verdict, verify-review-flow, append-decision, debug-log | implementation | `bd` CLI, jq, python3 | any prose/docs; hook TS |
+| `scripts/` | bd queue plumbing: session-boot, frontier, claim-next, review-submit, review-verdict, verify-review-flow, append-decision, debug-log, test-run | implementation | `bd` CLI, jq, python3 | any prose/docs; hook TS |
 | `references/` | contracts: personas, phase templates, review rubric, pillars, bd ops | architect | nothing (leaf) | scripts, companions |
 | `companions/` | the seven sub-skills (grill, research, to-spec, to-tickets, implement, review, debug) | architect | references/, scripts/ by path | scripts/, adapters/ |
 | `agents/` | harness-neutral persona contracts (wayfinder, architect, implementer, reviewer, product) | architect | references/personas.md | harness-specific flags |
-| `core/lib/` | harness-agnostic PolicyEngine, path walls, bd helpers, session state | implementation | nothing (leaf) | adapters copy nothing from here; `install.sh` copies this dir into the installed plugin |
+| `core/lib/` | harness-agnostic PolicyEngine, path walls, bd helpers, session state, tools-core unified classification & path extraction | implementation | nothing (leaf) | adapters copy nothing from here; `install.sh` copies this dir into the installed plugin |
 | `adapters/opencode/` | OpenCode agents + event shim (`policy.ts` / `tools.ts`) | implementation | `core/lib/` | companions/, scripts/ |
 | `adapters/ohmypi/` | Oh My Pi agents + event shim | implementation | `core/lib/` | companions/, scripts/ |
 | `adapters/cline/` | Cline agents (.md/.yaml) + event shim | implementation | `core/lib/` | companions/, scripts/ |
@@ -221,6 +221,22 @@ core files. Any new file must be reachable through install.sh.
 
 - Every transition is **O(1) bd calls**: one `bd show`, one `bd update`/`bd close`. No
   polling, no scans over all issues, no N+1 label queries.
+- **Snapshot deduplication**: `session-boot.sh` execution directly updates the engine's
+  live snapshot cache and state hash (`lastSnapshotHash`), suppressing redundant synthetic
+  live snapshot prompt injections when Beads state has not changed.
+- **Context compaction**: `compactContext` retains active task rules (`[beadfinder-active-state]`
+  and `[active-rules]`) in ~60 tokens while omitting stale snapshots and conversational history
+  during context window compaction passes.
+- **CLI token bounding**: `session-boot.sh` projects only `{id, status, title, labels}`,
+  stripping heavy descriptions, criteria, and comment histories to bound token consumption
+  during multi-session boots.
+- **Test output compression**: `scripts/test-run.sh` prevents token blowouts during TDD loops
+  by emitting a 15-line tail on passing runs and focused failure excerpts (regex-extracted
+  error patterns or first 30 lines) on failures.
+- **Tool classification centralization**: `core/lib/tools-core.ts` serves as the single
+  source of truth for tool classification (`isReadTool`, `isWriteTool`, `isBashTool`,
+  `isSpawnTool`, `isGlobTool`) and path extraction across all agent harnesses, guaranteeing
+  fail-closed evaluation without redundant parsing logic.
 - `session-boot.sh` emits **one** JSON document per section; workers read the frontier
   with `claim-next.sh`/`frontier.sh` (single `bd ready --label … --json` query).
 - The plugin never blocks the turn on bd: state is a small JSON sidecar

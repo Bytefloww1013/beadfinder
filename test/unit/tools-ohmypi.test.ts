@@ -8,6 +8,7 @@ import {
   isSpawnTool,
   isWriteTool,
   toolName,
+  toolPaths,
 } from "../../adapters/ohmypi/extensions/beadfinder/lib/tools.ts";
 
 describe("OMP tool classification", () => {
@@ -17,11 +18,11 @@ describe("OMP tool classification", () => {
     expect(toolName({ toolName: undefined })).toBe("");
   });
 
-  test("write tools are write/edit/multiedit (apply_patch is NOT in the set)", () => {
+  test("write tools include write/edit/multiedit/apply_patch", () => {
     expect(isWriteTool("write")).toBe(true);
     expect(isWriteTool("edit")).toBe(true);
     expect(isWriteTool("multiedit")).toBe(true);
-    expect(isWriteTool("apply_patch")).toBe(false);
+    expect(isWriteTool("apply_patch")).toBe(true);
     expect(isWriteTool("read")).toBe(false);
   });
 
@@ -30,20 +31,20 @@ describe("OMP tool classification", () => {
     expect(isReadTool("edit")).toBe(false);
   });
 
-  test("bash tools are bash/shell", () => {
+  test("bash tools include bash, shell, and execute_command", () => {
     expect(isBashTool("bash")).toBe(true);
     expect(isBashTool("shell")).toBe(true);
-    expect(isBashTool("execute_command")).toBe(false);
+    expect(isBashTool("execute_command")).toBe(true);
   });
 
-  test("spawn tools: exact set or any name containing 'task'", () => {
+  test("spawn tools: exact set, subagent prefixes, or any name containing 'task'", () => {
     expect(isSpawnTool("task")).toBe(true);
     expect(isSpawnTool("spawn")).toBe(true);
     expect(isSpawnTool("subagent")).toBe(true);
     expect(isSpawnTool("agent")).toBe(true);
     expect(isSpawnTool("my_task_runner")).toBe(true);
-    expect(isSpawnTool("spawn_agent")).toBe(false);
-    expect(isSpawnTool("start_subagent")).toBe(false);
+    expect(isSpawnTool("spawn_agent")).toBe(true);
+    expect(isSpawnTool("start_subagent")).toBe(true);
   });
 
   test("glob tools: exact set or any name containing 'glob'", () => {
@@ -53,7 +54,7 @@ describe("OMP tool classification", () => {
     expect(isGlobTool("list_dir")).toBe(true);
     expect(isGlobTool("ls")).toBe(true);
     expect(isGlobTool("glob_files")).toBe(true);
-    expect(isGlobTool("search_codebase")).toBe(false);
+    expect(isGlobTool("search_codebase")).toBe(true);
     expect(isGlobTool("read")).toBe(false);
   });
 });
@@ -64,9 +65,9 @@ describe("OMP input path extraction", () => {
     expect(inputPath({ filePath: "src/b.ts" })).toBe("src/b.ts");
     expect(inputPath({ file_path: "src/c.ts" })).toBe("src/c.ts");
     expect(inputPath({ filename: "src/d.ts" })).toBe("src/d.ts");
+    expect(inputPath({ file: "src/f.ts" })).toBe("src/f.ts");
     expect(inputPath({ target_directory: "src/e" })).toBe("src/e");
     expect(inputPath({ targetDirectory: "src/f" })).toBe("src/f");
-    expect(inputPath({ file: "ignored" })).toBe("");
     expect(inputPath({})).toBe("");
     expect(inputPath({ path: "" })).toBe("");
   });
@@ -93,5 +94,13 @@ describe("OMP glob search paths", () => {
   test("non-beads patterns are ignored entirely", () => {
     expect(globSearchPaths({ pattern: "**/*" })).toEqual([]);
     expect(globSearchPaths({})).toEqual([]);
+  });
+});
+
+describe("OMP path extraction", () => {
+  test("toolPaths uses canonical extraction", () => {
+    expect(toolPaths("apply_patch", { patchText: "*** Update File: src/foo.ts\n" })).toEqual(["src/foo.ts"]);
+    expect(toolPaths("apply_patch", { patch: "*** Update File: src/bar.ts\n" })).toEqual(["src/bar.ts"]);
+    expect(toolPaths("write", { filePath: "src/bar.ts" })).toEqual(["src/bar.ts"]);
   });
 });

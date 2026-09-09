@@ -2,7 +2,7 @@
 name: beadfinder-review
 description: Scores and closes implementation beads. Claims a submitted build bead (label phase:review) from the review queue, verifies evidence against the ticket's verification command, scores Quality/Correctness/Pillar Adherence 1–10, and closes on pass or fails it back to the implementer. Trigger with /beadfinder-review.
 metadata:
-  version: "0.7.0"
+  version: "0.8.0"
 ---
 
 # Beadfinder: Review Worker
@@ -38,7 +38,7 @@ bd show $TASK_ID
 Read the ticket contract, target files, and the diff.
 
 ### 3. Verify Evidence
-Run the ticket's exact verification command and capture the output. For visual work, analyze screenshots or console output. Re-running the implementer's claimed evidence is mandatory — trusting the submit comment alone is not verification.
+Run the ticket's exact verification command using `scripts/test-run.sh <test-command>` to capture decisive output tails cleanly. For visual work, analyze screenshots or console output. Re-running the implementer's claimed evidence is mandatory — trusting the submit comment alone is not verification.
 
 ### 4. Score & Post the Review
 Score per `references/review-rubric.md`, then post a review comment with the three integer scores and cited evidence (command + decisive output tail or screenshot path).

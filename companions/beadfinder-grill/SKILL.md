@@ -2,7 +2,7 @@
 name: beadfinder-grill
 description: Socratic trade-off interrogation and architectural grilling engine. Resolves beadfinder:grill decision beads by evaluating concrete options, surfacing edge cases, and locking decisions into Beads memory. Trigger with /beadfinder-grill or when working a grilling bead.
 metadata:
-  version: "0.7.0"
+  version: "0.8.0"
 ---
 
 # Beadfinder: Socratic Decision Grilling

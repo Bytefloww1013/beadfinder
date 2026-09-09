@@ -1,4 +1,4 @@
-# Beadfinder 0.7.0
+# Beadfinder 0.8.0
 
 Pack root: this repo.
 
@@ -20,6 +20,10 @@ Pack root: this repo.
 14. Deprecated v0.6 role labels (`wayfinder`, `architecture`) stay routed by the hooks as aliases; new beads SHOULD still set a v0.7 role label (`wayfind` / `architect` / `research` / `implementation` / `review` / `product`) at creation for humans, but MUST set the `phase:*` label. Role labels are optional metadata, not a dispatch key.
 15. Script persona args: `wayfinder` `research` `architect` `implementer` `reviewer` `product`. Mapping (arg → `phase:*` label): ARCHITECTURE.md §2. `frontier.sh` / `claim-next.sh` query `--label phase:<name>`; they do not filter on role labels.
 16. Multi-harness packaging contract: `install.sh` supports `--omp`, `--opencode`, and `--cline` (with `--global`, `--dest`, and `--debug`). Every harness receives the full skills suite, persona agents, and policy enforcement plugin/extension.
+17. Tool unification: `core/lib/tools-core.ts` is the single source of truth for tool classification and path extraction across all harnesses.
+18. Token-efficient session boot: `session-boot.sh` projects minimal issue fields; `PolicyEngine` suppresses duplicate synthetic snapshot notifications.
+19. Worker skill decoupling: `implementer` and `reviewer` agents load only their respective leaf companion skills (`beadfinder-implement`, `beadfinder-review`), purging the 5.9KB root orchestrator skill.
+20. Compressed verification runner: `scripts/test-run.sh` encapsulates test execution, preserving context by truncating passing logs and focusing failure excerpts.
 
 ## Tree
 
@@ -28,7 +32,8 @@ beadfinder/
   SKILL.md
   ARCHITECTURE.md               phase machine + label vocabulary + scoring + failure isolation
   IMPLEMENTATION.md             this file
-  scripts/                      frontier, claim-next, review-submit, review-verdict, verify-review-flow, session-boot, append-decision, debug-log
+  core/lib/                     tools-core (single source of truth for classification/paths), engine, policy, bd, paths, state, log
+  scripts/                      frontier, claim-next, review-submit, review-verdict, verify-review-flow, session-boot, append-decision, debug-log, test-run
   companions/grill|research|to-spec|to-tickets|implement|review|beadfinder-debug
   agents/                       wayfinder, architect, research, implementer, reviewer, product
   adapters/opencode/agents
@@ -44,11 +49,11 @@ beadfinder/
   references/                   review-rubric, architectural-pillars, personas, beads-ops, micro-ticket-templates
 ```
 
-Install: `bash install.sh --omp` copies skills, agents, and the OMP extension. `bash install.sh --opencode` copies skills, agents, the plugin (`plugins/beadfinder.ts` + `plugins/beadfinder/lib`), and `/beadfinder`. `bash install.sh --cline` copies skills, agents (`.md` and `.yaml`), and the Cline plugin (`plugins/beadfinder/`). `--debug` also copies `beadfinder-debug`. `install.sh` `chmod a+x` on copied `*.sh` so `session-boot.sh` can exec `frontier.sh`. Session boot lists live work with `--status open,in_progress` as **one** JSON document.
+Install: `bash install.sh --omp` copies skills, agents, and the OMP extension. `bash install.sh --opencode` copies skills, agents, the plugin (`plugins/beadfinder.ts` + `plugins/beadfinder/lib`), and `/beadfinder`. `bash install.sh --cline` copies skills, agents (`.md` and `.yaml`), and the Cline plugin (`plugins/beadfinder/`). `--debug` also copies `beadfinder-debug`. `install.sh` copies `core/lib/` (including `tools-core.ts`) into each installed plugin's `lib/`, and sets `chmod a+x` on copied `*.sh` (including `session-boot.sh`, `test-run.sh`, etc.) so `session-boot.sh` can exec `frontier.sh`. Session boot lists live work with `--status open,in_progress` as **one** projected JSON document.
 
 Verify the review pipeline anytime: `bash scripts/verify-review-flow.sh` (scratch bd store, zero side effects on this repo).
 
-## What 0.7.0 still is not
+## What 0.8.0 still is not
 
 - Not smoke-tested against every OMP build's extension loader. If hooks are silent, add `.omp/extensions/beadfinder` to `.omp/settings.json` `extensions`.
 - OpenCode plugin is auto-loaded from `.opencode/plugins/*.ts`. Restart OpenCode after install.

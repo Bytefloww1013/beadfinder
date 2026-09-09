@@ -1,12 +1,16 @@
 # Beadfinder hooks — implementer plan
 
+v0.8.0. Oh My Pi, OpenCode, and Cline.
+
 This is the working plan for agents changing the hook pack. Humans who only need behavior should read [HOOKS.md](HOOKS.md).
 
 ## Scope lock
 
+- Core logic lives in `core/lib/` (canonical source of truth for `tools-core.ts`, `policy-core.ts`, `engine.ts`, `state.ts`).
 - Policy for OMP lives in `adapters/ohmypi/extensions/beadfinder/`.
 - Policy for OpenCode lives in `adapters/opencode/plugins/` (`beadfinder.ts` + `beadfinder/lib`).
 - Policy for Cline lives in `adapters/cline/plugins/beadfinder/` (`package.json`, `index.ts`, `lib/`).
+- Tool classification is unified in `core/lib/tools-core.ts` with minimal adapter shims.
 - Debug logging is gated. Default install must not fill the debug log.
 - Do not import claude-protocol’s “user closes after merge” / worktree rules.
 - HITL stays label + ask in the parent. Hooks only stop it leaving the parent.
@@ -15,6 +19,10 @@ This is the working plan for agents changing the hook pack. Humans who only need
 ## Layout
 
 ```
+core/lib/
+  tools-core.ts     canonical tool sets, predicates, tokenizers, and path extractors
+  policy-core.ts    shared close-guard and validation policy
+  engine.ts         harness-agnostic lifecycle engine
 adapters/ohmypi/extensions/beadfinder/
   index.ts          thin default-export factory
   lib/
@@ -22,20 +30,20 @@ adapters/ohmypi/extensions/beadfinder/
     debug.ts        registerDebug()
     fsutil.ts       paths, flags, json helpers
     state.ts        .omp/beadfinder/state.json
-    tools.ts        tool/argv parsing
+    tools.ts        shim re-exporting tools-core.ts + OMP toolName()
     paths.ts        protected / product / tracker
     bd.ts           bd exec + issue helpers
     log.ts          JSONL writer, debugEnabled()
 adapters/opencode/plugins/
   beadfinder.ts     OpenCode plugin export (auto-loaded)
-  beadfinder/lib/   same jobs as OMP lib; OpenCode events + apply_patch/task
+  beadfinder/lib/   same jobs as OMP lib; tools.ts shims tools-core.ts + OpenCode toolName()
 adapters/opencode/commands/beadfinder.md
 adapters/cline/
   agents/           reviewer, implementer, product, research, architect, wayfinder (*.md + *.yaml)
   plugins/beadfinder/
     package.json    plugin manifest
     index.ts        AgentPlugin export (hooks: beforeTool, afterTool, beforeRun, afterRun)
-    lib/            policy, tools, paths, fsutil, state, bd, log
+    lib/            policy, tools (shims tools-core.ts), paths, fsutil, state, bd, log
 scripts/debug-log.py
 companions/beadfinder-debug/
 install.sh          --omp copies extension; --opencode copies plugin + commands; --cline copies plugin + agents; --debug copies debug skill
@@ -73,6 +81,16 @@ mutatingTools, lastRefreshAt, lastSnapshot, seenClosed
 Never store secrets. Safe to delete; hooks rebuild it.
 
 ## Hook implementation notes
+
+### tool-classification unification
+
+- Canonical classification sets and helpers are centralized in `core/lib/tools-core.ts` as the single source of truth.
+- Canonical sets: `WRITE_TOOLS`, `READ_TOOLS`, `BASH_TOOLS`, `SPAWN_TOOLS`, `GLOB_TOOLS`. Fail-closed superset across all supported harnesses (OMP, OpenCode, Cline).
+- Predicates: `isWriteTool`, `isReadTool`, `isBashTool`, `isSpawnTool`, `isGlobTool`.
+- Path extraction: `toolPaths` handles singular path keys (`filePath`, `path`, etc.), file arrays (`files: [...]`), glob/search patterns (`pattern`, `query`), and diff/patch payloads (`applyPatchPaths` for patch text).
+- Bash & Spawn normalization: `bashCommand` handles single command strings and array-based `commands`; `spawnText` recursively traverses payload values.
+- Shell parsing & bd invocation: `tokenize`, `stripShellComments`, `allBdInvocations`, and `flagValue` (last occurrence wins) live in `tools-core.ts`.
+- Adapter shims: `adapters/*/lib/tools.ts` across OMP, OpenCode, and Cline are minimal shims that re-export `core/lib/tools-core.ts` and provide only harness-specific `toolName(event)` normalization.
 
 ### session-boot-inject + status-refresh
 
@@ -199,7 +217,7 @@ Smoke:
 - `bd` is spawned with `child_process.spawn("bd", args, { cwd: directory })`. Always pass `--json` when parsing.
 - Persona comes from `input.persona` / `input.agent` in `beforeRun`, or `session-boot.sh --persona`.
 - State is `.cline/beadfinder/state.json`, keyed by session id.
-- Tool classification recognizes Cline/Claude tool names (`read_file`, `read_files`, `write`, `edit`, `editor`, `apply_patch`, `execute_command`, `run_commands`, `task`, `spawn_agent`, `start_subagent`, `subagent_run`, `search_codebase`).
+- Tool classification recognizes Cline/Claude tool names (`read_file`, `read_files`, `write`, `edit`, `editor`, `apply_patch`, `execute_command`, `run_commands`, `task`, `spawn_agent`, `start_subagent`, `subagent_run`, `search_codebase`) via unified definitions in `core/lib/tools-core.ts`.
 - Tests: `bun test test/`.
 
 ## Verify before claiming “Cline hooks work”

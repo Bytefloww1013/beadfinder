@@ -10,17 +10,22 @@ import { isBareBeadsPath, isProductPath, isProtectedPath, isTrackerSidecar, pers
 import { evaluateCloseGuard } from "./policy-core.ts";
 import { loadState, recordClosed, saveState, type SessionState } from "./state.ts";
 import {
-  applyPatchPaths,
   allBdInvocations,
   bashCommand,
   flagValue,
   hasFlag,
   hitlInText,
+  isBashTool,
+  isGlobTool,
+  isReadTool,
+  isSpawnTool,
   isSystemAgent,
+  isWriteTool,
   labelBlob,
   looksLikeProductWriteBash,
   spawnContract,
   spawnText,
+  toolPaths,
 } from "./tools-core.ts";
 
 const BUDGET = Number(process.env.BEADFINDER_MUTATING_BUDGET || 80);
@@ -28,41 +33,6 @@ const REFRESH_MS = Number(process.env.BEADFINDER_REFRESH_MS || 45_000);
 const YIELD_ON_STOP = (process.env.BEADFINDER_YIELD_ON_STOP || "afk").toLowerCase();
 
 const MUTATING_BD = new Set(["create", "update", "close", "ready", "comment", "assign"]);
-
-/** Security superset of Cline + OpenCode + Oh My Pi tool-name sets. Fail closed. */
-const WRITE_TOOLS = new Set([
-  "write",
-  "edit",
-  "multiedit",
-  "apply_patch",
-  "write_to_file",
-  "replace_in_file",
-  "editor",
-  "new_empty_file",
-]);
-const READ_TOOLS = new Set(["read", "read_file", "read_files", "open_file"]);
-const BASH_TOOLS = new Set(["bash", "shell", "terminal", "execute_command", "run_commands"]);
-const SPAWN_TOOLS = new Set([
-  "task",
-  "spawn",
-  "subagent",
-  "agent",
-  "spawn_agent",
-  "start_subagent",
-  "team_run_task",
-]);
-const GLOB_TOOLS = new Set([
-  "glob",
-  "grep",
-  "search",
-  "list",
-  "list_dir",
-  "ls",
-  "search_codebase",
-  "list_files",
-  "find_files",
-]);
-const PATH_KEYS = ["path", "filePath", "file_path", "filename", "file", "target_directory", "targetDirectory"];
 
 export class PolicyBlock extends Error {
   readonly hook: string;
@@ -147,9 +117,15 @@ export class PolicyEngine {
 
   compactContext(sessionId: string): string[] {
     const state = loadState(this.bridge.directory, sessionId);
-    return [
+    const out = [
       `[beadfinder-active-state] Persona: ${state.persona || "wayfinder"} | Active Slice: ${state.parent || "none"} | Claimed Task: ${state.claimedId || "none"}`,
     ];
+    if (state.claimedId) {
+      out.push(
+        `[active-rules] Implement only ticket ${state.claimedId}. Submit via scripts/review-submit.sh. Do not close directly.`,
+      );
+    }
+    return out;
   }
 
   /** force skips the REFRESH_MS backoff; notify is still hash-gated. */
@@ -437,6 +413,10 @@ export class PolicyEngine {
       const st = loadState(cwd, sessionId);
       if (parsed.persona) st.persona = parsed.persona;
       if (parsed.parent) st.parent = parsed.parent;
+      const snap = await bd.liveSnapshot(cwd);
+      st.lastSnapshot = snap;
+      st.lastSnapshotHash = djb2(snap);
+      st.lastRefreshAt = Date.now();
       saveState(cwd, sessionId, st);
     }
 
@@ -469,7 +449,6 @@ export class PolicyEngine {
     }
 
     if (
-      bd.isSessionBoot(cmd) ||
       bd.isClaimNext(cmd) ||
       /review-submit\.sh\b/.test(cmd) ||
       /review-verdict\.sh\b/.test(cmd) ||
@@ -581,88 +560,6 @@ function djb2(s: string): string {
     h = ((h << 5) + h + s.charCodeAt(i)) | 0;
   }
   return (h >>> 0).toString(16);
-}
-
-function isWriteTool(name: string): boolean {
-  return WRITE_TOOLS.has(name);
-}
-
-function isReadTool(name: string): boolean {
-  return READ_TOOLS.has(name);
-}
-
-function isBashTool(name: string): boolean {
-  return BASH_TOOLS.has(name);
-}
-
-function isSpawnTool(name: string): boolean {
-  return SPAWN_TOOLS.has(name) || name.startsWith("subagent_") || name.includes("spawn") || name.includes("task");
-}
-
-function isGlobTool(name: string): boolean {
-  return GLOB_TOOLS.has(name) || name.includes("glob");
-}
-
-function inputPath(input: Record<string, unknown>): string {
-  for (const key of PATH_KEYS) {
-    const v = input[key];
-    if (typeof v === "string" && v) return v;
-  }
-  if (Array.isArray(input.files)) {
-    for (const item of input.files) {
-      if (item && typeof item === "object") {
-        const p = inputPath(item as Record<string, unknown>);
-        if (p) return p;
-      }
-    }
-  }
-  return "";
-}
-
-function globSearchPaths(input: Record<string, unknown>): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  const push = (v: string) => {
-    if (v && !seen.has(v)) {
-      seen.add(v);
-      out.push(v);
-    }
-  };
-  push(inputPath(input));
-  for (const key of ["pattern", "glob", "glob_pattern", "query", "path"]) {
-    const v = input[key];
-    if (typeof v === "string" && /^(?:\.\/)?beads(?:\/|$)/.test(v)) push(v);
-  }
-  if (Array.isArray(input.queries)) {
-    for (const q of input.queries) {
-      if (typeof q === "string" && /^(?:\.\/)?beads(?:\/|$)/.test(q)) push(q);
-    }
-  }
-  return out;
-}
-
-/** Richer Cline extractor: apply_patch payloads, files[], glob patterns. */
-function toolPaths(name: string, input: Record<string, unknown>): string[] {
-  if (name === "apply_patch" || typeof input.patchText === "string" || typeof input.patch === "string") {
-    const text =
-      typeof input.patchText === "string" ? input.patchText : typeof input.patch === "string" ? input.patch : "";
-    const extracted = applyPatchPaths(text);
-    if (extracted.length) return extracted;
-  }
-  if (Array.isArray(input.files)) {
-    const fromFiles: string[] = [];
-    for (const item of input.files) {
-      if (item && typeof item === "object") {
-        const p = inputPath(item as Record<string, unknown>);
-        if (p) fromFiles.push(p);
-      }
-    }
-    if (fromFiles.length) return fromFiles;
-  }
-  const fromGlob = globSearchPaths(input);
-  if (fromGlob.length) return fromGlob;
-  const p = inputPath(input);
-  return p ? [p] : [];
 }
 
 async function showIssue(cwd: string, id: string) {

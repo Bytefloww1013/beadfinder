@@ -55,7 +55,7 @@ describe("PolicyEngine", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  test("compactContext is a single short tuple and omits lastSnapshot", () => {
+  test("compactContext is enriched with active-rules when claimedId is set and omits lastSnapshot", () => {
     const huge = "HUGE-SNAPSHOT-PAYLOAD ".repeat(200);
     const st = loadState(dir, "ses");
     st.persona = "implementer";
@@ -65,13 +65,53 @@ describe("PolicyEngine", () => {
     saveState(dir, "ses", st);
 
     const bits = engine().compactContext("ses");
-    expect(bits).toHaveLength(1);
+    expect(bits).toHaveLength(2);
     expect(bits[0]).toContain("implementer");
     expect(bits[0]).toContain("slice-1");
     expect(bits[0]).toContain("auth-12");
     expect(bits[0]).toContain("[beadfinder-active-state]");
+    expect(bits[1]).toBe(
+      "[active-rules] Implement only ticket auth-12. Submit via scripts/review-submit.sh. Do not close directly.",
+    );
     expect(bits.join("\n")).not.toContain("HUGE-SNAPSHOT-PAYLOAD");
     expect(bits[0].length).toBeLessThan(200);
+  });
+
+  test("compactContext is a single tuple when no ticket is claimed", () => {
+    const st = loadState(dir, "ses_unclaimed");
+    st.persona = "wayfinder";
+    st.parent = "slice-1";
+    st.claimedId = "";
+    saveState(dir, "ses_unclaimed", st);
+
+    const bits = engine().compactContext("ses_unclaimed");
+    expect(bits).toHaveLength(1);
+    expect(bits[0]).toContain("wayfinder");
+    expect(bits[0]).toContain("slice-1");
+  });
+
+  test("session-boot in handleToolAfter updates snapshot state without double notifying", async () => {
+    const eng = engine();
+    await eng.onSessionStart("ses_boot");
+    const countAfterStart = messages.length;
+
+    await eng.afterToolExecute(
+      "ses_boot",
+      "bash",
+      { command: "bash /path/to/session-boot.sh --persona implementer --parent slice-2" },
+      "output",
+      false,
+    );
+
+    // Should NOT have sent an additional notification
+    expect(messages.length).toBe(countAfterStart);
+
+    const st = loadState(dir, "ses_boot");
+    expect(st.persona).toBe("implementer");
+    expect(st.parent).toBe("slice-2");
+    expect(st.lastSnapshot).toBe(snap);
+    expect(st.lastSnapshotHash).toBeTruthy();
+    expect(st.lastRefreshAt).toBeGreaterThan(0);
   });
 
   test("identical snapshots do not notify twice; a changed ready-list does", async () => {

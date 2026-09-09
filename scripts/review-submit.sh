@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Handoff T1: move a finished build bead from implement to the review queue.
+# Handoff T1: move a finished build bead from implement to the review queue (v0.8.0).
 # Valid only from phase:implement (and not closed); unassigns and reopens so
 # bd ready stays the single discovery mechanism for the reviewer. Role labels
 # are optional metadata and are left as-is.
@@ -33,12 +33,15 @@ if ! command -v bd >/dev/null 2>&1; then
   exit 1
 fi
 
-out="$(bd show "$ID" --json 2>/dev/null)" || {
+if ! command -v jq >/dev/null 2>&1; then
+  echo '{"error":"jq not on PATH"}' >&2
+  exit 1
+fi
+
+if ! bead="$(bd show "$ID" --json 2>/dev/null | jq -e -c '(if type == "array" then (if length == 0 then error("not found") else .[0] end) else . end) | {status: (.status // ""), labels: (.labels // [])}')" || [[ -z "$bead" ]]; then
   echo '{"error":"bead not found","id":"'"$ID"'"}' >&2
   exit 1
-}
-
-bead="$(printf '%s' "$out" | jq -c '(if type == "array" then .[0] else . end) | {status: (.status // ""), labels: (.labels // [])}')"
+fi
 
 if [[ "$(jq -r '.status' <<<"$bead")" == "closed" ]]; then
   echo '{"error":"bead is closed","id":"'"$ID"'"}' >&2

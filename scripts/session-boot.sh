@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Session start: prime memories, list live destination/slice tickets and ready work.
+# Session start: prime memories, list live destination/slice tickets and ready work (v0.8.0).
 set -euo pipefail
 
 PERSONA=""
@@ -34,12 +34,65 @@ if [[ "$JSON" -eq 0 ]] && ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
+# Project issue objects to emit only id, status, title, and labels (stripping descriptions, comments, etc.).
+project_issues() {
+  local json="${1:-}"
+  if [[ -z "$json" || "$json" == "null" ]]; then
+    echo "[]"
+    return 0
+  fi
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "$json" | jq '
+      (if type == "array" then .
+       elif type == "object" then (.issues // .items // (if has("id") then [.] else [] end))
+       else [] end)
+      | map({
+          id: .id,
+          status: .status,
+          title: .title,
+          labels: (.labels // [])
+        })
+    ' 2>/dev/null || printf '%s\n' "$json"
+  elif command -v python3 >/dev/null 2>&1; then
+    python3 -c '
+import json, sys
+raw = sys.stdin.read().strip()
+if not raw:
+    print("[]")
+    sys.exit(0)
+try:
+    data = json.loads(raw)
+except Exception:
+    print(raw)
+    sys.exit(0)
+if isinstance(data, dict):
+    data = data.get("issues") or data.get("items") or ([data] if data.get("id") else [])
+if not isinstance(data, list):
+    print("[]")
+    sys.exit(0)
+projected = [
+    {
+        "id": item.get("id"),
+        "status": item.get("status"),
+        "title": item.get("title"),
+        "labels": item.get("labels", []),
+    }
+    for item in data
+    if isinstance(item, dict)
+]
+print(json.dumps(projected, indent=2))
+' <<<"$json" || printf '%s\n' "$json"
+  else
+    printf '%s\n' "$json"
+  fi
+}
+
 # One JSON document. Beads wants comma-separated --status (repeating overwrites).
 # Fall back to merging two queries so we never print `[]` then a second array.
 list_live() {
   local out=""
   if out="$(bd list "$@" --status open,in_progress --json 2>/dev/null)" && [[ -n "$out" ]]; then
-    printf '%s\n' "$out"
+    project_issues "$out"
     return 0
   fi
   python3 - "$@" <<'PY' || true
@@ -62,7 +115,12 @@ def take(raw, seen, order):
             continue
         i = item.get("id")
         if i and i not in seen:
-            seen[i] = item
+            seen[i] = {
+                "id": item.get("id"),
+                "status": item.get("status"),
+                "title": item.get("title"),
+                "labels": item.get("labels", []),
+            }
             order.append(i)
 
 seen = {}
@@ -92,7 +150,7 @@ print_rows() {
      elif type == "object" then (.issues // .items // (if has("id") then [.] else [] end))
      else [] end)
     | if length == 0 then "  (none)"
-      else .[] | "  \(.id) [\(.status)] \(.title)"
+      else .[] | "  \(.id) [\(.status // "unknown")] \(.title)"
       end
   ' 2>/dev/null)" && [[ -n "$rows" ]]; then
     printf '%s\n' "$rows"
@@ -117,17 +175,17 @@ if [[ "$JSON" -eq 1 ]]; then
 
   echo
   echo "=== in progress (any label) ==="
-  bd list --status in_progress --json || true
+  project_issues "$(bd list --status in_progress --json 2>/dev/null || true)"
 
   echo
   echo "=== ready work ==="
-  bd ready --limit 20 --json || true
+  project_issues "$(bd ready --limit 10 --json 2>/dev/null || true)"
 
   if [[ -n "$PARENT" && -n "$PERSONA" ]]; then
     echo
     echo "=== frontier $PERSONA under $PARENT ==="
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    bash "$SCRIPT_DIR/frontier.sh" --parent "$PARENT" --persona "$PERSONA" || true
+    project_issues "$(bash "$SCRIPT_DIR/frontier.sh" --parent "$PARENT" --persona "$PERSONA" 2>/dev/null || true)"
   fi
 else
   echo
@@ -139,13 +197,13 @@ else
   echo "--- Active Slices ---"
   print_rows "$(list_live --label beadfinder:slice)"
   echo "--- In Progress ---"
-  print_rows "$(bd list --status in_progress --json || true)"
+  print_rows "$(bd list --status in_progress --json 2>/dev/null || true)"
   echo "--- Ready Work (Frontier) ---"
-  print_rows "$(bd ready --limit 10 --json || true)"
+  print_rows "$(bd ready --limit 10 --json 2>/dev/null || true)"
 
   if [[ -n "$PARENT" && -n "$PERSONA" ]]; then
     echo "--- Frontier ($PERSONA under $PARENT) ---"
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    print_rows "$(bash "$SCRIPT_DIR/frontier.sh" --parent "$PARENT" --persona "$PERSONA" || true)"
+    print_rows "$(bash "$SCRIPT_DIR/frontier.sh" --parent "$PARENT" --persona "$PERSONA" 2>/dev/null || true)"
   fi
 fi

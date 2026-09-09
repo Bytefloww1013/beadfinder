@@ -1,6 +1,6 @@
 # Beadfinder
 
-v0.7.0 — a Beads-native wayfinding pack for multi-session agent work.
+v0.8.0 — a Beads-native wayfinding pack for multi-session agent work.
 
 Charts a destination epic and runs five phases — plan → requirements → design → implement → review — one plan decision per session, build tickets through the review gauntlet. Personas (`wayfinder`, `research`, `architect`, `implementer`, `reviewer`, `product`) hand off through `bd ready` and atomic `--claim`. Plan decisions close in phase; requirements compile into SPEC.md (the SRS); design writes ARCHITECTURE.md + IMPLEMENTATION.md and cuts the ticket DAG; builds flow through the review gauntlet.
 
@@ -8,9 +8,31 @@ Every build bead goes through a review gauntlet: the implementer submits with `s
 
 This is not Beads and not Matt Pocock’s Wayfinder. See [NOTICE.md](NOTICE.md).
 
+## Token Efficiency Innovations (v0.8.0)
+
+v0.8.0 introduces core architectural enhancements designed to drastically reduce token consumption across multi-session workflows:
+
+- **Live Snapshot Deduplication**: Session boot output updates the state snapshot hash. Subsequent checks suppress redundant synthetic prompt injection when the underlying Beads state has not changed.
+- **Projected Issue Objects**: `session-boot.sh` projects only essential issue fields (`id`, `status`, `title`, and `labels`), stripping bulky descriptions and comment histories to bound token footprint.
+- **Compressed Test Output**: `scripts/test-run.sh` compresses test execution output, emitting a concise 15-line tail on success and targeted regex-extracted error excerpts on failure, preventing context blowout during tight TDD loops.
+- **Decoupled Worker Skills**: Specialized worker subagents (`implementer` and `reviewer`) load only their dedicated leaf companion skills (`beadfinder-implement` and `beadfinder-review`), purging the 5.9KB root orchestrator skill from their context.
+- **Unified Tool Classification**: `core/lib/tools-core.ts` provides a centralized, single source of truth for tool classification (read, write, bash, spawn, glob) and path extraction across all supported agent harnesses.
+
 ## Install
 
 Needs the Beads CLI (`bd`) on `PATH`.
+
+### Build & Bundling
+
+```bash
+# Build and bundle shims
+bun run build
+
+# Verify harness shim synchronization
+bun run verify:sync
+```
+
+### Harness Installation
 
 ```bash
 git clone https://github.com/Bytefloww1013/beadfinder.git
@@ -72,7 +94,8 @@ install.sh               installation of the skill/plugin/hooks and other associ
 SKILL.md                 orchestrator
 ARCHITECTURE.md          phase machine, label vocabulary, subsystems, scoring, failure isolation
 IMPLEMENTATION.md        locked decisions + pack tree
-scripts/                 frontier, claim-next, review-submit, review-verdict, verify-review-flow, session-boot, append-decision, debug-log
+core/lib/tools-core.ts   unified tool classification & path extraction single source of truth
+scripts/                 frontier, claim-next, review-submit, review-verdict, verify-review-flow, session-boot, append-decision, debug-log, test-run
 companions/              beadfinder-grill, beadfinder-research, beadfinder-to-spec, beadfinder-to-tickets, beadfinder-implement, beadfinder-review, beadfinder-debug
 agents/                  harness-neutral persona contracts
 adapters/                OpenCode agents + plugin; Oh My Pi agents + extensions; Cline agents + plugin

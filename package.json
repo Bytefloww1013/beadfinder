@@ -1,8 +1,9 @@
 {
   "name": "beadfinder",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "scripts": {
+    "build": "bun build adapters/opencode/plugins/beadfinder.ts --outfile dist/opencode/beadfinder.js && bun build adapters/cline/plugins/beadfinder/index.ts --outfile dist/cline/beadfinder.js",
     "test": "bun test test/",
     "test:smoke": "bash scripts/verify-review-flow.sh && bash scripts/verify-install.sh",
     "verify:sync": "bun scripts/verify-shims.ts"

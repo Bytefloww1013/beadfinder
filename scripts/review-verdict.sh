@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Handoff T3: reviewer verdict on a bead in the review queue.
+# Handoff T3: reviewer verdict on a bead in the review queue (v0.8.0).
 # Valid only from phase:review (role labels are optional and left as-is).
 # Smoke-free contract: --pass closes the bead; the reason must carry
 # "Review PASS" and the three N/10 scores (validated here). --fail posts the
@@ -53,12 +53,15 @@ if ! command -v bd >/dev/null 2>&1; then
   exit 1
 fi
 
-out="$(bd show "$ID" --json 2>/dev/null)" || {
+if ! command -v jq >/dev/null 2>&1; then
+  echo '{"error":"jq not on PATH"}' >&2
+  exit 1
+fi
+
+if ! bead="$(bd show "$ID" --json 2>/dev/null | jq -e -c '(if type == "array" then (if length == 0 then error("not found") else .[0] end) else . end) | {status: (.status // ""), labels: (.labels // [])}')" || [[ -z "$bead" ]]; then
   echo '{"error":"bead not found","id":"'"$ID"'"}' >&2
   exit 1
-}
-
-bead="$(printf '%s' "$out" | jq -c '(if type == "array" then .[0] else . end) | {status: (.status // ""), labels: (.labels // [])}')"
+fi
 
 if [[ "$(jq -r '.status' <<<"$bead")" == "closed" ]]; then
   echo '{"error":"bead is closed","id":"'"$ID"'"}' >&2
@@ -104,7 +107,16 @@ if [[ -n "$PASS" ]]; then
   bd close "$ID" --reason "$REASON" --json
   exit 0
 fi
+comment_body="$REASON"
+if ! grep -qi "Review FAIL" <<<"$REASON"; then
+  if [[ "$REASON" =~ $'\n' ]]; then
+    comment_body="Review FAIL"$'\n\n'"$REASON"
+  else
+    comment_body="Review FAIL: $REASON"
+  fi
+fi
 
-bd comment "$ID" "$REASON" >/dev/null
+bd comment "$ID" "$comment_body" >/dev/null
 bd update "$ID" --remove-label phase:review \
   --add-label phase:implement --assignee "" --status open --json
+

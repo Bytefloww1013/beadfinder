@@ -6,10 +6,18 @@ import {
   isReadTool,
   isSpawnTool,
   isWriteTool,
+  toolName,
   toolPaths,
 } from "../../adapters/cline/plugins/beadfinder/lib/tools.ts";
 
 describe("Cline tool classification", () => {
+  test("toolName lowercases and handles tool, toolName, and name", () => {
+    expect(toolName({ tool: "WRITE" })).toBe("write");
+    expect(toolName({ toolName: "BASH" })).toBe("bash");
+    expect(toolName({ name: "EXECUTE" })).toBe("execute");
+    expect(toolName({})).toBe("");
+  });
+
   test("treats apply_patch, editor, write, edit as write tools", () => {
     expect(isWriteTool("apply_patch")).toBe(true);
     expect(isWriteTool("editor")).toBe(true);

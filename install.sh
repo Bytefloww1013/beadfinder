@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# Copy beadfinder skills + persona agents into Oh My Pi or OpenCode.
+# Beadfinder v0.8.0 installer
+# Copy beadfinder skills + persona agents into Oh My Pi, OpenCode, or Cline (v0.8.0).
 set -euo pipefail
 
 usage() {
-  cat >&2 <<'EOF'
+  local code="${1:-1}"
+  local out=2
+  [[ "$code" -eq 0 ]] && out=1
+  cat >&$out <<'EOF'
+Beadfinder v0.8.0 installer
 usage: install.sh --omp|--opencode|--cline [--global] [--dest DIR] [--debug]
 
   --omp         Oh My Pi  (.omp/skills + .omp/agents + extensions)
@@ -21,7 +26,7 @@ Run from a clone of this pack, or via:
   bash /path/to/beadfinder/install.sh --cline
   bash /path/to/beadfinder/install.sh --cline --debug
 EOF
-  exit 1
+  exit "$code"
 }
 
 HARNESS=""
@@ -41,7 +46,7 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     --debug) DEBUG=1 ;;
-    -h|--help) usage ;;
+    -h|--help) usage 0 ;;
     *) echo "unknown arg: $1" >&2; usage ;;
   esac
   shift
@@ -93,6 +98,14 @@ copy_skill() {
     rm -rf "$dest/scripts/__pycache__"
     # session-boot.sh calls frontier.sh by path; 100644 copies fail with Permission denied
     find "$dest/scripts" -type f -name '*.sh' -exec chmod a+x {} + 2>/dev/null || true
+    # Explicitly recognize, verify, and chmod +x scripts/test-run.sh during skill script copying
+    if [[ -f "$dest/scripts/test-run.sh" ]]; then
+      chmod a+x "$dest/scripts/test-run.sh"
+      [[ -x "$dest/scripts/test-run.sh" ]] || {
+        echo "error: failed to make $dest/scripts/test-run.sh executable" >&2
+        exit 1
+      }
+    fi
   fi
   if [[ -d "$src/references" ]]; then
     cp -R "$src/references" "$dest/"
@@ -100,6 +113,16 @@ copy_skill() {
 }
 
 copy_skill beadfinder "$PACK"
+# Verify scripts/test-run.sh is explicitly installed and executable in beadfinder skill
+if [[ ! -f "$SKILLS/beadfinder/scripts/test-run.sh" ]]; then
+  echo "error: scripts/test-run.sh missing from $SKILLS/beadfinder/scripts/" >&2
+  exit 1
+fi
+chmod a+x "$SKILLS/beadfinder/scripts/test-run.sh"
+[[ -x "$SKILLS/beadfinder/scripts/test-run.sh" ]] || {
+  echo "error: $SKILLS/beadfinder/scripts/test-run.sh is not executable" >&2
+  exit 1
+}
 copy_skill beadfinder-grill "$PACK/companions/beadfinder-grill"
 copy_skill beadfinder-implement "$PACK/companions/beadfinder-implement"
 copy_skill beadfinder-review "$PACK/companions/beadfinder-review"
@@ -115,6 +138,10 @@ fi
 
 # session-boot.sh calls frontier.sh by path; 100644 copies fail with Permission denied
 find "$SKILLS" -type f -name '*.sh' -exec chmod a+x {} +
+[[ -x "$SKILLS/beadfinder/scripts/test-run.sh" ]] || {
+  echo "error: $SKILLS/beadfinder/scripts/test-run.sh is not executable" >&2
+  exit 1
+}
 
 # Shared engine lives once in core/lib. Adapters are shims that import it via
 # ../../../../../core/lib/*. Harnesses load raw TS from the plugin folder, so

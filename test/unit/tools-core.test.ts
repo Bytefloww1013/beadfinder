@@ -2,17 +2,31 @@ import { describe, expect, test } from "bun:test";
 import {
   allBdInvocations,
   applyPatchPaths,
+  BASH_TOOLS,
   bashCommand,
   firstBdInvocation,
   flagValue,
+  GLOB_TOOLS,
+  globSearchPaths,
   hasFlag,
   hitlInText,
+  inputPath,
+  isBashTool,
+  isGlobTool,
+  isReadTool,
+  isSpawnTool,
   isSystemAgent,
+  isWriteTool,
   labelBlob,
   looksLikeProductWriteBash,
+  PATH_KEYS,
+  READ_TOOLS,
+  SPAWN_TOOLS,
   spawnContract,
   spawnText,
   stripShellComments,
+  toolPaths,
+  WRITE_TOOLS,
 } from "../../core/lib/tools-core.ts";
 
 describe("stripShellComments", () => {
@@ -248,3 +262,84 @@ describe("bashCommand / spawnText / spawn contract", () => {
     expect(isSystemAgent("wayfinder")).toBe(false);
   });
 });
+
+describe("canonical tool sets and classifiers", () => {
+  test("WRITE_TOOLS and isWriteTool", () => {
+    expect(WRITE_TOOLS.has("write")).toBe(true);
+    expect(WRITE_TOOLS.has("apply_patch")).toBe(true);
+    expect(WRITE_TOOLS.has("multiedit")).toBe(true);
+    expect(isWriteTool("write")).toBe(true);
+    expect(isWriteTool("apply_patch")).toBe(true);
+    expect(isWriteTool("editor")).toBe(true);
+    expect(isWriteTool("read")).toBe(false);
+  });
+
+  test("READ_TOOLS and isReadTool", () => {
+    expect(READ_TOOLS.has("read")).toBe(true);
+    expect(READ_TOOLS.has("read_files")).toBe(true);
+    expect(isReadTool("read")).toBe(true);
+    expect(isReadTool("read_files")).toBe(true);
+    expect(isReadTool("write")).toBe(false);
+  });
+
+  test("BASH_TOOLS and isBashTool", () => {
+    expect(BASH_TOOLS.has("bash")).toBe(true);
+    expect(BASH_TOOLS.has("execute_command")).toBe(true);
+    expect(isBashTool("bash")).toBe(true);
+    expect(isBashTool("shell")).toBe(true);
+    expect(isBashTool("execute_command")).toBe(true);
+    expect(isBashTool("run_commands")).toBe(true);
+    expect(isBashTool("editor")).toBe(false);
+  });
+
+  test("SPAWN_TOOLS and isSpawnTool", () => {
+    expect(SPAWN_TOOLS.has("task")).toBe(true);
+    expect(SPAWN_TOOLS.has("spawn_agent")).toBe(true);
+    expect(isSpawnTool("task")).toBe(true);
+    expect(isSpawnTool("spawn_agent")).toBe(true);
+    expect(isSpawnTool("start_subagent")).toBe(true);
+    expect(isSpawnTool("subagent_run")).toBe(true);
+    expect(isSpawnTool("my_task_runner")).toBe(true);
+    expect(isSpawnTool("write")).toBe(false);
+  });
+
+  test("GLOB_TOOLS and isGlobTool", () => {
+    expect(GLOB_TOOLS.has("glob")).toBe(true);
+    expect(GLOB_TOOLS.has("search_codebase")).toBe(true);
+    expect(isGlobTool("glob")).toBe(true);
+    expect(isGlobTool("grep")).toBe(true);
+    expect(isGlobTool("search")).toBe(true);
+    expect(isGlobTool("search_codebase")).toBe(true);
+    expect(isGlobTool("glob_files")).toBe(true);
+    expect(isGlobTool("read")).toBe(false);
+  });
+});
+
+describe("canonical path extraction", () => {
+  test("inputPath checks PATH_KEYS and files array", () => {
+    expect(PATH_KEYS).toContain("file");
+    expect(inputPath({ path: "src/a.ts" })).toBe("src/a.ts");
+    expect(inputPath({ filePath: "src/b.ts" })).toBe("src/b.ts");
+    expect(inputPath({ file: "src/c.ts" })).toBe("src/c.ts");
+    expect(inputPath({ files: [{ path: "src/d.ts" }] })).toBe("src/d.ts");
+    expect(inputPath({})).toBe("");
+  });
+
+  test("globSearchPaths checks beads paths", () => {
+    expect(globSearchPaths({ pattern: "beads/*.jsonl" })).toEqual(["beads/*.jsonl"]);
+    expect(globSearchPaths({ path: "src", pattern: "**/*.ts" })).toEqual(["src"]);
+  });
+
+  test("toolPaths handles apply_patch (patchText and patch), files, glob, and single path", () => {
+    expect(toolPaths("apply_patch", { patchText: "*** Update File: src/foo.ts\n" })).toEqual(["src/foo.ts"]);
+    expect(toolPaths("apply_patch", { patch: "*** Update File: src/bar.ts\n" })).toEqual(["src/bar.ts"]);
+    expect(toolPaths("read_files", { files: [{ path: "src/one.ts" }, { filePath: "src/two.ts" }] })).toEqual([
+      "src/one.ts",
+      "src/two.ts",
+    ]);
+    expect(toolPaths("glob", { pattern: "beads/*.jsonl" })).toEqual(["beads/*.jsonl"]);
+    expect(toolPaths("write", { path: "src/single.ts" })).toEqual(["src/single.ts"]);
+    expect(toolPaths("unknown", {})).toEqual([]);
+  });
+});
+
