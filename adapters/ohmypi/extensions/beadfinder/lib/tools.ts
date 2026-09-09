@@ -1,9 +1,6 @@
-// Pure tokenizer/argv helpers live in core/lib/tools-core.ts (vendored by
-// scripts/sync-adapters.ts — ohmypi's manifest slice includes it). Only the
-// helpers whose behavior is identical across harnesses are re-exported here;
-// classification sets and input-shape helpers stay local on purpose (OMP's
-// apply_patch is NOT a write tool; spawn/glob classifiers are narrower; and
-// inputPath deliberately ignores a bare "file" key).
+// Harness-specific tool names/paths. Shared tokenizer lives in core/lib.
+// OMP's apply_patch is NOT a write tool; spawn/glob classifiers are narrower;
+// inputPath deliberately ignores a bare "file" key.
 export {
   applyPatchPaths,
   bashCommand,
@@ -15,7 +12,7 @@ export {
   looksLikeProductWriteBash,
   spawnText,
   tokenize,
-} from "./tools-core.ts";
+} from "../../../../../core/lib/tools-core.ts";
 
 const WRITE_TOOLS = new Set(["write", "edit", "multiedit"]);
 const READ_TOOLS = new Set(["read"]);

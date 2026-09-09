@@ -3,8 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createBeadfinder } from "../../adapters/opencode/plugins/beadfinder/lib/policy.ts";
-import * as bd from "../../adapters/opencode/plugins/beadfinder/lib/bd.ts";
-import { loadState, saveState } from "../../adapters/opencode/plugins/beadfinder/lib/state.ts";
+import * as bd from "../../core/lib/bd.ts";
+import { loadState, saveState } from "../../core/lib/state.ts";
 
 let fakeIssue: Record<string, unknown> | null = null;
 

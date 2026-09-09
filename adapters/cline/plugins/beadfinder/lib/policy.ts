@@ -1,8 +1,10 @@
 /**
- * Cline shim: host events → PolicyEngine. Policy lives in engine.ts.
+ * Cline shim: host events → PolicyEngine.
+ * Shared code is core/lib; install.sh copies it next to this file and rewrites
+ * the core/lib imports to "./".
  */
-import { PolicyEngine } from "./engine.ts";
-import { hooksDisabled } from "./fsutil.ts";
+import { PolicyEngine } from "../../../../../core/lib/engine.ts";
+import { hooksDisabled } from "../../../../../core/lib/fsutil.ts";
 import { isSystemAgent, toolName } from "./tools.ts";
 
 export type ClineContext = {

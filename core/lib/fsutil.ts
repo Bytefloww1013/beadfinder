@@ -4,8 +4,8 @@ import { dirname, join, normalize, relative, resolve, sep } from "node:path";
 /**
  * Host harness dot-dir for per-workspace beadfinder state.
  *
- * This file is vendored verbatim into every adapter's lib/ (see
- * scripts/sync-adapters.ts), so it cannot hardcode one harness's dot-dir.
+ * Copied into the installed plugin lib by install.sh (adapters are shims
+ * only). Cannot hardcode one harness's dot-dir.
  * Resolution order:
  *   1. BEADFINDER_HOST_DIR env override (dir name or absolute path) — the
  *      escape hatch for --global installs, where the harness dot-dir lives

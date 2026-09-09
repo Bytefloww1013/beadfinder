@@ -1,10 +1,9 @@
 /**
  * Adapter-agnostic reviewer close-guard policy core.
  *
- * Pure functions only: no cwd, no I/O, no advisor, no throwing. Each adapter's
- * policy.ts imports `evaluateCloseGuard` and maps a `{ ok: false, hook, message }`
- * result onto its own local shim (throwBlock in cline/opencode, block in ohmypi).
- * This file is vendored to all three adapters by scripts/sync-adapters.ts.
+ * Pure functions only: no cwd, no I/O, no advisor, no throwing. PolicyEngine
+ * maps a `{ ok: false, hook, message }` result onto PolicyBlock. Copied into
+ * the installed plugin lib by install.sh.
  */
 
 export type RubricScores = { quality: number; correctness: number; pillars: number };

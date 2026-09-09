@@ -1,12 +1,10 @@
 /**
  * Shared, host-agnostic tokenizer/argv helpers for the tools.ts layer.
  *
- * Vendored verbatim by scripts/sync-adapters.ts into cline, opencode, and
- * ohmypi (see MANIFEST there). Keep this file pure: no host imports, no
- * host-specific tool-name sets, no I/O. Each adapter's tools.ts re-exports
- * the subset it exposes; tool-name classification sets and input-shape
- * helpers (toolName/inputPath/globSearchPaths/toolPaths) stay per-adapter
- * because they are deliberately different per harness.
+ * Copied into the installed plugin lib by install.sh. Keep this file pure:
+ * no host imports, no host-specific tool-name sets, no I/O. Each adapter's
+ * tools.ts re-exports the subset it exposes; tool-name classification sets
+ * and input-shape helpers stay per-adapter because they differ per harness.
  *
  * Documented parser behavior (pinned by tests):
  * - stripShellComments removes `# ...` to end-of-line when `#` is not inside

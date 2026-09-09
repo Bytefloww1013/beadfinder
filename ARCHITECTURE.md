@@ -157,16 +157,19 @@ integrator. The hook layer (`paths.ts personaWall`) encodes the same walls.
 | `references/` | contracts: personas, phase templates, review rubric, pillars, bd ops | architect | nothing (leaf) | scripts, companions |
 | `companions/` | the seven sub-skills (grill, research, to-spec, to-tickets, implement, review, debug) | architect | references/, scripts/ by path | scripts/, adapters/ |
 | `agents/` | harness-neutral persona contracts (wayfinder, architect, implementer, reviewer, product) | architect | references/personas.md | harness-specific flags |
-| `adapters/opencode/` | OpenCode agents, plugin (hooks), /beadfinder command | implementation | lib/ shared state; mirrors agents/ semantics | companions/, scripts/ |
-| `adapters/ohmypi/` | Oh My Pi agents + extension (same hooks, OMP event API) | implementation | lib/ shared state; mirrors agents/ semantics | companions/, scripts/ |
-| `adapters/cline/` | Cline agents (.md/.yaml), policy plugin (hooks: beforeTool, afterTool, beforeRun, afterRun) | implementation | lib/ shared state; mirrors agents/ semantics | companions/, scripts/ |
+| `core/lib/` | harness-agnostic PolicyEngine, path walls, bd helpers, session state | implementation | nothing (leaf) | adapters copy nothing from here; `install.sh` copies this dir into the installed plugin |
+| `adapters/opencode/` | OpenCode agents + event shim (`policy.ts` / `tools.ts`) | implementation | `core/lib/` | companions/, scripts/ |
+| `adapters/ohmypi/` | Oh My Pi agents + event shim | implementation | `core/lib/` | companions/, scripts/ |
+| `adapters/cline/` | Cline agents (.md/.yaml) + event shim | implementation | `core/lib/` | companions/, scripts/ |
 | `docs/` | human + hook documentation (HOOKS.md, HOOKS-IMPLEMENTATION.md, harness-*.md) | architect | code as-is | code |
 | `third_party/` | vendored upstreams | nobody (frozen) | — | everything |
 | root | SKILL.md, ARCHITECTURE.md, README.md, IMPLEMENTATION.md, install.sh, LICENSE/NOTICE | integrator only | all | — |
 
 `install.sh` is the packaging contract: it copies `SKILL.md` + `references/` + `scripts/`
-as the `beadfinder` skill, each `companions/<name>` as its own skill, and the adapter
-agents/plugin into the target harness. Any new file must be reachable through it.
+as the `beadfinder` skill, each `companions/<name>` as its own skill, the adapter
+agents/shim into the target harness, and `core/lib/` into the installed plugin `lib/`
+(rewriting shim imports from `core/lib` to `./`). Adapters must not contain copies of
+core files. Any new file must be reachable through install.sh.
 
 ---
 

@@ -200,7 +200,7 @@ Smoke:
 - Persona comes from `input.persona` / `input.agent` in `beforeRun`, or `session-boot.sh --persona`.
 - State is `.cline/beadfinder/state.json`, keyed by session id.
 - Tool classification recognizes Cline/Claude tool names (`read_file`, `read_files`, `write`, `edit`, `editor`, `apply_patch`, `execute_command`, `run_commands`, `task`, `spawn_agent`, `start_subagent`, `subagent_run`, `search_codebase`).
-- Tests: `bun test adapters/cline/plugins/beadfinder/lib/policy.test.ts adapters/cline/plugins/beadfinder/lib/tools.test.ts adapters/cline/plugins/beadfinder/lib/bd.test.ts`.
+- Tests: `bun test test/`.
 
 ## Verify before claiming “Cline hooks work”
 

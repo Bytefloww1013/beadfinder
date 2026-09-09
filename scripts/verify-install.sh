@@ -56,6 +56,10 @@ check_omp() {
   assert_file "$root/extensions/beadfinder/index.ts"
   assert_dir  "$root/extensions/beadfinder/lib"
   assert_file "$root/extensions/beadfinder/lib/policy.ts"
+  assert_file "$root/extensions/beadfinder/lib/engine.ts"
+  assert_file "$root/extensions/beadfinder/lib/bd.ts"
+  grep -q 'from "./engine.ts"' "$root/extensions/beadfinder/lib/policy.ts" \
+    || fail "$RUN" "installed OMP policy.ts still imports core/lib (install rewrite missed)"
   # OMP treats every top-level *.ts under extensions/ as its own entry; the
   # old flattened index.ts/debug.ts strays must not be present.
   local strays
@@ -69,6 +73,10 @@ check_opencode() {
   assert_file "$root/plugins/beadfinder.ts"
   assert_dir  "$root/plugins/beadfinder"
   assert_file "$root/plugins/beadfinder/lib/policy.ts"
+  assert_file "$root/plugins/beadfinder/lib/engine.ts"
+  assert_file "$root/plugins/beadfinder/lib/bd.ts"
+  grep -q 'from "./engine.ts"' "$root/plugins/beadfinder/lib/policy.ts" \
+    || fail "$RUN" "installed OpenCode policy.ts still imports core/lib (install rewrite missed)"
   local tests
   tests="$(find "$root/plugins" -type f -name '*.test.ts')"
   [[ -z "$tests" ]] || fail "$RUN" "*.test.ts leaked into plugins/:
@@ -86,6 +94,10 @@ check_cline() {
   assert_file "$root/plugins/beadfinder/package.json"
   assert_dir  "$root/plugins/beadfinder/lib"
   assert_file "$root/plugins/beadfinder/lib/policy.ts"
+  assert_file "$root/plugins/beadfinder/lib/engine.ts"
+  assert_file "$root/plugins/beadfinder/lib/bd.ts"
+  grep -q 'from "./engine.ts"' "$root/plugins/beadfinder/lib/policy.ts" \
+    || fail "$RUN" "installed Cline policy.ts still imports core/lib (install rewrite missed)"
   local tests
   tests="$(find "$root/plugins" -type f -name '*.test.ts')"
   [[ -z "$tests" ]] || fail "$RUN" "*.test.ts leaked into plugins/:

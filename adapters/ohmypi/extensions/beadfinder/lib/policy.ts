@@ -1,13 +1,15 @@
 /**
- * Oh My Pi shim: host events → PolicyEngine. Policy lives in engine.ts.
+ * Oh My Pi shim: host events → PolicyEngine.
+ * Shared code is core/lib; install.sh copies it next to this file and rewrites
+ * the core/lib imports to "./".
  *
  * SESSION IDENTITY SEAM: OMP hook payloads expose no session id, so we key off
  * BEADFINDER_SESSION_ID or the literal "default" bucket.
  */
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
-import { PolicyBlock, PolicyEngine } from "./engine.ts";
-import { hooksDisabled } from "./fsutil.ts";
-import { SNAPSHOT_PREFIX } from "./tools-core.ts";
+import { PolicyBlock, PolicyEngine } from "../../../../../core/lib/engine.ts";
+import { hooksDisabled } from "../../../../../core/lib/fsutil.ts";
+import { SNAPSHOT_PREFIX } from "../../../../../core/lib/tools-core.ts";
 import { toolName } from "./tools.ts";
 import { registerDebug } from "./debug.ts";
 

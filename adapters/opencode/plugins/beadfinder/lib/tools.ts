@@ -1,6 +1,4 @@
-// Pure tokenizer/argv helpers live in core/lib/tools-core.ts (vendored by
-// scripts/sync-adapters.ts). Re-exported here so existing "./tools.ts"
-// imports (tests, plugin, bd.ts, policy.ts) keep working.
+// Harness-specific tool names/paths. Shared tokenizer lives in core/lib.
 export {
   applyPatchPaths,
   bashCommand,
@@ -16,9 +14,9 @@ export {
   spawnContract,
   spawnText,
   tokenize,
-} from "./tools-core.ts";
+} from "../../../../../core/lib/tools-core.ts";
 
-import { applyPatchPaths } from "./tools-core.ts";
+import { applyPatchPaths } from "../../../../../core/lib/tools-core.ts";
 
 const WRITE_TOOLS = new Set(["write", "edit", "multiedit", "apply_patch"]);
 const READ_TOOLS = new Set(["read"]);

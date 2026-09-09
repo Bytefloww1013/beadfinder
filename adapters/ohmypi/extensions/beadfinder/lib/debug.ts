@@ -7,9 +7,9 @@
  * Info (tool_call / turn_end / agent_end) needs BEADFINDER_DEBUG=verbose.
  */
 import type { HookAPI } from "@oh-my-pi/pi-coding-agent/extensibility/hooks";
-import { asIssues, isClaimNext, isClosedStatus, isFrontier } from "./bd.ts";
-import { debugEnabled, debugLog } from "./log.ts";
-import { isBareBeadsPath } from "./paths.ts";
+import { asIssues, isClaimNext, isClosedStatus, isFrontier } from "../../../../../core/lib/bd.ts";
+import { debugEnabled, debugLog } from "../../../../../core/lib/log.ts";
+import { isBareBeadsPath } from "../../../../../core/lib/paths.ts";
 import { bashCommand, firstBdInvocation, globSearchPaths, isBashTool, isGlobTool, toolName } from "./tools.ts";
 
 let registered = false;
