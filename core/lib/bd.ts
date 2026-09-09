@@ -1,8 +1,15 @@
 import { loadState, saveState, type Persona } from "./state.ts";
-import { flagValue, hasFlag, tokenize } from "./tools.ts";
+import {
+  flagValue,
+  hasFlag,
+  tokenize,
+  allBdInvocations,
+  stripShellComments,
+  SNAPSHOT_PREFIX,
+} from "./tools-core.ts";
 import { spawn } from "node:child_process";
 
-export { firstBdInvocation } from "./tools.ts";
+export { firstBdInvocation, allBdInvocations } from "./tools-core.ts";
 
 export type BdIssue = {
   id?: string;
@@ -79,8 +86,41 @@ export function isFrontier(cmd: string): boolean {
   return /frontier\.sh\b/.test(cmd);
 }
 
+function isAppendDecisionToken(tok: string): boolean {
+  return tok === "append-decision.py" || tok.endsWith("/append-decision.py");
+}
+
+function isPythonInterp(tok: string): boolean {
+  const base = tok.split("/").pop() || tok;
+  return /^python3?(\.\d+)*$/.test(base);
+}
+
 export function isAppendDecision(cmd: string): boolean {
-  return /append-decision\.py\b/.test(cmd);
+  const clean = stripShellComments(cmd);
+  // Sibling `bd` in the same compound command means this is not a clean
+  // append-decision invocation (python3 ... --help && bd update ...).
+  if (allBdInvocations(clean).length > 0) return false;
+  const segments = clean.split(/\n|;|&&|\|\|/).map((s) => s.trim()).filter(Boolean);
+  for (const segment of segments) {
+    const tokens = tokenize(segment.replace(/^\s*\d*\s*>\s*/, ""));
+    let stage: string[] = [];
+    const stages: string[][] = [];
+    for (const t of tokens) {
+      if (t === "|") {
+        stages.push(stage);
+        stage = [];
+      } else {
+        stage.push(t);
+      }
+    }
+    stages.push(stage);
+    for (const argv of stages) {
+      if (!argv.length) continue;
+      if (isAppendDecisionToken(argv[0])) return true;
+      if (isPythonInterp(argv[0]) && argv[1] && isAppendDecisionToken(argv[1])) return true;
+    }
+  }
+  return false;
 }
 
 const BD_TIMEOUT_MS = 20_000;
@@ -184,9 +224,11 @@ export async function listLive(cwd: string, args: string[]): Promise<BdIssue[]> 
   if (combined.ok) {
     return asIssues(combined.json).filter((i) => isLiveStatus(i.status));
   }
+  const [openRes, inProgRes] = await Promise.all(
+    ["open", "in_progress"].map((status) => runBd(cwd, [...args, "--status", status, "--json"])),
+  );
   const buckets: BdIssue[][] = [];
-  for (const status of ["open", "in_progress"]) {
-    const res = await runBd(cwd, [...args, "--status", status, "--json"]);
+  for (const res of [openRes, inProgRes]) {
     let parsed: unknown = res.json;
     try {
       parsed = JSON.parse(res.raw);
@@ -196,6 +238,25 @@ export async function listLive(cwd: string, args: string[]): Promise<BdIssue[]> 
     buckets.push(asIssues(parsed).filter((i) => isLiveStatus(i.status)));
   }
   return mergeIssues(...buckets);
+}
+
+export async function liveSnapshot(cwd: string): Promise<string> {
+  const [dest, slices, inProgRes, readyRes] = await Promise.all([
+    listLive(cwd, ["list", "--label", "beadfinder:destination", "--type", "epic"]),
+    listLive(cwd, ["list", "--label", "beadfinder:slice"]),
+    runBd(cwd, ["list", "--status", "in_progress", "--json"]),
+    runBd(cwd, ["ready", "--limit", "20", "--json"]),
+  ]);
+  const inProg = asIssues(inProgRes.json);
+  const ready = asIssues(readyRes.json);
+  return [
+    SNAPSHOT_PREFIX,
+    "Beads store: .beads/ (hidden). Query with bd show/list --json.",
+    formatSnapshot(dest, "Live destinations (open + in_progress)"),
+    formatSnapshot(slices, "Live slices (open + in_progress)"),
+    formatSnapshot(inProg, "In progress"),
+    formatSnapshot(ready, "Ready work (bd ready)"),
+  ].join("\n");
 }
 
 export function formatSnapshot(issues: BdIssue[], heading: string): string {
