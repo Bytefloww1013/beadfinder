@@ -24,18 +24,21 @@ const BEADS_OK = [
   ".omp/beadfinder-debug.log",
 ];
 
-const PRODUCT_PREFIXES = [
-  "src/",
-  "lib/",
-  "app/",
-  "apps/",
-  "packages/",
-  "backend/",
-  "frontend/",
-  "server/",
-  "client/",
-  "cmd/",
-  "internal/",
+/** Docs/planning non-implementers may edit. Everything else is product code. */
+const PERMITTED_PLANNING_DOCS = [
+  /^docs\//,
+  /^references\//,
+  /^spikes\//,
+  /(?:^|\/)adr\/.*\.md$/i, // any **/adr/*.md
+  /^SPEC\.md$/i,
+  /^ARCHITECTURE\.md$/i,
+  /^IMPLEMENTATION\.md$/i,
+  /^README\.md$/i,
+  /^SKILL\.md$/i,
+  /^LICENSE\.md$/i,
+  /^NOTICE\.md$/i,
+  /^CONTRIBUTING\.md$/i,
+  /^CHANGELOG\.md$/i,
 ];
 
 export function isProtectedPath(cwd: string, p: string): boolean {
@@ -72,8 +75,11 @@ export function isProductPath(cwd: string, p: string): boolean {
   ) {
     return false;
   }
-  if (/\.(md|txt|json)$/.test(rel) && !rel.includes("/")) return false;
-  return PRODUCT_PREFIXES.some((pre) => rel.startsWith(pre));
+  if (PERMITTED_PLANNING_DOCS.some((re) => re.test(rel))) return false;
+  // Wayfinder/research may still drop planning markdown at the repo root.
+  if (/\.md$/i.test(rel) && !rel.includes("/")) return false;
+  if (!p || !rel || rel === ".") return false;
+  return true;
 }
 
 export function isTrackerSidecar(cwd: string, p: string): boolean {

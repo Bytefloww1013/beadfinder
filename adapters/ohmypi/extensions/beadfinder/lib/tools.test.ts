@@ -174,7 +174,7 @@ describe("product write detection via bash", () => {
   test("does not flag reads or non-product targets", () => {
     expect(looksLikeProductWriteBash("bd show auth-1 --json")).toBe(false);
     expect(looksLikeProductWriteBash("cat README.md")).toBe(false);
-    expect(looksLikeProductWriteBash("echo x > notes/scratch.txt")).toBe(false);
+    expect(looksLikeProductWriteBash("echo x > notes/scratch.txt")).toBe(true);
     // rm without a redirect/write indicator is not treated as a write here
     expect(looksLikeProductWriteBash("rm -rf packages/old")).toBe(false);
   });
@@ -200,9 +200,7 @@ describe("bd argv parsing", () => {
     expect(firstBdInvocation("echo hi; bd show b-1")?.[1]).toBe("show");
     expect(firstBdInvocation("echo hi && bd list")?.[1]).toBe("list");
     expect(firstBdInvocation("echo hi || bd list")?.[1]).toBe("list");
-    const piped = firstBdInvocation("bd list | grep auth");
-    expect(piped?.[0]).toBe("bd");
-    expect(piped).toContain("|");
+    expect(firstBdInvocation("bd list | grep auth")).toEqual(["bd", "list"]);
   });
 
   test("firstBdInvocation strips a leading redirect prefix", () => {
@@ -257,8 +255,7 @@ describe("adversarial argv parsing (shared tools-core behavior)", () => {
   test("a single | is not a split boundary; bd after a pipe is still detected", () => {
     const argv = firstBdInvocation("echo hi | bd list");
     expect(argv).toEqual(["bd", "list"]);
-    // When bd comes BEFORE the pipe, the pipe stays in the returned tokens.
-    expect(firstBdInvocation("bd list | grep auth")).toContain("|");
+    expect(firstBdInvocation("bd list | grep auth")).toEqual(["bd", "list"]);
   });
 
   test("leading redirects are stripped before tokenizing", () => {

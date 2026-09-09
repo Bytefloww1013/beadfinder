@@ -104,8 +104,12 @@ describe("Cline policy hooks", () => {
     st.persona = "implementer";
     st.lastSnapshot = "Live Beads snapshot (do not trust earlier chat for ticket status): none";
     saveState(dir, sessionID, st);
-    const { compactContext } = await import("./policy.ts");
-    const context = compactContext(dir, sessionID);
+    const { PolicyEngine } = await import("./engine.ts");
+    const context = new PolicyEngine({
+      directory: dir,
+      notify: async () => {},
+      log: () => {},
+    }).compactContext(sessionID);
     expect(context.some((l) => l.includes("auth-12"))).toBe(true);
     expect(context.some((l) => l.includes("implementer"))).toBe(true);
   });

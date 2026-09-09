@@ -1,4 +1,5 @@
 import { posixish, relToCwd } from "./fsutil.ts";
+import type { Persona } from "./state.ts";
 
 const PROTECTED_FRAGMENTS = [
   ".env",
@@ -13,20 +14,31 @@ const PROTECTED_FRAGMENTS = [
   "secrets.json",
 ];
 
-const BEADS_OK = [".beads/", ".omp/beadfinder/", ".omp/beadfinder-debug.log"];
+const BEADS_OK = [
+  ".beads/",
+  ".cline/beadfinder/",
+  ".cline/beadfinder-debug.log",
+  ".opencode/beadfinder/",
+  ".opencode/beadfinder-debug.log",
+  ".omp/beadfinder/",
+  ".omp/beadfinder-debug.log",
+];
 
-const PRODUCT_PREFIXES = [
-  "src/",
-  "lib/",
-  "app/",
-  "apps/",
-  "packages/",
-  "backend/",
-  "frontend/",
-  "server/",
-  "client/",
-  "cmd/",
-  "internal/",
+/** Docs/planning non-implementers may edit. Everything else is product code. */
+const PERMITTED_PLANNING_DOCS = [
+  /^docs\//,
+  /^references\//,
+  /^spikes\//,
+  /(?:^|\/)adr\/.*\.md$/i, // any **/adr/*.md
+  /^SPEC\.md$/i,
+  /^ARCHITECTURE\.md$/i,
+  /^IMPLEMENTATION\.md$/i,
+  /^README\.md$/i,
+  /^SKILL\.md$/i,
+  /^LICENSE\.md$/i,
+  /^NOTICE\.md$/i,
+  /^CONTRIBUTING\.md$/i,
+  /^CHANGELOG\.md$/i,
 ];
 
 export function isProtectedPath(cwd: string, p: string): boolean {
@@ -54,9 +66,20 @@ export function isBareBeadsPath(cwd: string, p: string): boolean {
 
 export function isProductPath(cwd: string, p: string): boolean {
   const rel = posixish(relToCwd(cwd, p));
-  if (rel.startsWith(".beads/") || rel.startsWith(".omp/") || rel.startsWith(".git/")) return false;
-  if (/\.(md|txt|json)$/.test(rel) && !rel.includes("/")) return false;
-  return PRODUCT_PREFIXES.some((pre) => rel.startsWith(pre));
+  if (
+    rel.startsWith(".beads/") ||
+    rel.startsWith(".cline/") ||
+    rel.startsWith(".omp/") ||
+    rel.startsWith(".opencode/") ||
+    rel.startsWith(".git/")
+  ) {
+    return false;
+  }
+  if (PERMITTED_PLANNING_DOCS.some((re) => re.test(rel))) return false;
+  // Wayfinder/research may still drop planning markdown at the repo root.
+  if (/\.md$/i.test(rel) && !rel.includes("/")) return false;
+  if (!p || !rel || rel === ".") return false;
+  return true;
 }
 
 export function isTrackerSidecar(cwd: string, p: string): boolean {
@@ -74,4 +97,29 @@ export function isTrackerSidecar(cwd: string, p: string): boolean {
 export function isLikelyAdrPath(cwd: string, p: string): boolean {
   const rel = posixish(relToCwd(cwd, p)).toLowerCase();
   return rel.includes("/adr") || rel.includes("adr/") || /(^|\/)adr[-_]/.test(rel);
+}
+
+export function personaWall(cwd: string, persona: Persona, path: string): string {
+  if (isProtectedPath(cwd, path)) return `Protected path: ${path}`;
+  if (isTrackerSidecar(cwd, path)) return `Do not invent a second tracker (${path}). File a bead.`;
+  const product = isProductPath(cwd, path);
+  const adr = isLikelyAdrPath(cwd, path);
+  switch (persona) {
+    case "wayfinder":
+    case "product":
+    case "research":
+      if (product) return `${persona} may not edit product files (${path}).`;
+      return "";
+    case "architect":
+      if (product && !adr) return `architect may not land production features (${path}).`;
+      return "";
+    case "reviewer":
+      if (product) return `reviewer may not patch product files (${path}). File a blocker bead.`;
+      return "";
+    case "implementer":
+      return "";
+    default:
+      if (isProtectedPath(cwd, path)) return `Protected path: ${path}`;
+      return "";
+  }
 }

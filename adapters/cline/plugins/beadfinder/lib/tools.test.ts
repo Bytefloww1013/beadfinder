@@ -198,11 +198,8 @@ describe("adversarial tokenizer coverage (tools-core)", () => {
     expect(firstBdInvocation("echo a\nbd list")?.[1]).toBe("list");
   });
 
-  test("a single | is not a split boundary; tokens keep the pipe and bd is still found", () => {
-    const piped = firstBdInvocation("bd list | grep auth");
-    expect(piped?.[0]).toBe("bd");
-    expect(piped).toContain("|");
-    // The returned slice starts at bd, so a pipe BEFORE bd is dropped from the result.
+  test("a single | is not a split boundary; argv truncates at the pipe", () => {
+    expect(firstBdInvocation("bd list | grep auth")).toEqual(["bd", "list"]);
     expect(firstBdInvocation("echo hi | bd list")).toEqual(["bd", "list"]);
   });
 

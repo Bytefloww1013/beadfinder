@@ -21,6 +21,7 @@ export type SessionState = {
   mutatingTools: number;
   lastRefreshAt: number;
   lastSnapshot: string;
+  lastSnapshotHash: string;
   seenClosed: Record<string, string>;
   booted: boolean;
 };
@@ -41,6 +42,7 @@ export const emptyState = (): SessionState => ({
   mutatingTools: 0,
   lastRefreshAt: 0,
   lastSnapshot: "",
+  lastSnapshotHash: "",
   seenClosed: {},
   booted: false,
 });

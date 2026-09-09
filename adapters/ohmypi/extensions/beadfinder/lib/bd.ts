@@ -1,7 +1,15 @@
 import { loadState, saveState, type Persona } from "./state.ts";
-import { flagValue, hasFlag, tokenize } from "./tools.ts";
+import {
+  flagValue,
+  hasFlag,
+  tokenize,
+  allBdInvocations,
+  stripShellComments,
+  SNAPSHOT_PREFIX,
+} from "./tools-core.ts";
+import { spawn } from "node:child_process";
 
-export { firstBdInvocation } from "./tools.ts";
+export { firstBdInvocation, allBdInvocations } from "./tools-core.ts";
 
 export type BdIssue = {
   id?: string;
@@ -59,13 +67,6 @@ export function personaFromArg(value: string): Persona | "" {
   return personaFromRoleLabel(v);
 }
 
-export function modeFromLabels(labels: string[]): "hitl" | "afk" | "" {
-  const blob = labels.join(" ").toLowerCase();
-  if (/\bhitl\b/.test(blob) || /beadfinder:grill/.test(blob)) return "hitl";
-  if (/\bafk\b/.test(blob)) return "afk";
-  return "";
-}
-
 export function parseClaimNextArgs(cmd: string): { parent: string; persona: Persona | "" } {
   const tokens = tokenize(cmd);
   const parent = flagValue(tokens, "--parent");
@@ -85,27 +86,100 @@ export function isFrontier(cmd: string): boolean {
   return /frontier\.sh\b/.test(cmd);
 }
 
-export function isAppendDecision(cmd: string): boolean {
-  return /append-decision\.py\b/.test(cmd);
+function isAppendDecisionToken(tok: string): boolean {
+  return tok === "append-decision.py" || tok.endsWith("/append-decision.py");
 }
 
-export async function runBd(
-  pi: { exec: (cmd: string, args: string[], opts?: Record<string, unknown>) => Promise<{ stdout?: string; stderr?: string; code?: number }> },
-  args: string[],
-): Promise<{ ok: boolean; raw: string; json: unknown }> {
-  try {
-    const res = await pi.exec("bd", args, { timeout: 20_000 });
-    const raw = String(res.stdout || res.stderr || "").trim();
-    if ((res.code || 0) !== 0) return { ok: false, raw, json: null };
-    if (!raw) return { ok: true, raw: "", json: null };
-    try {
-      return { ok: true, raw, json: JSON.parse(raw) };
-    } catch {
-      return { ok: true, raw, json: null };
+function isPythonInterp(tok: string): boolean {
+  const base = tok.split("/").pop() || tok;
+  return /^python3?(\.\d+)*$/.test(base);
+}
+
+export function isAppendDecision(cmd: string): boolean {
+  const clean = stripShellComments(cmd);
+  // Sibling `bd` in the same compound command means this is not a clean
+  // append-decision invocation (python3 ... --help && bd update ...).
+  if (allBdInvocations(clean).length > 0) return false;
+  const segments = clean.split(/\n|;|&&|\|\|/).map((s) => s.trim()).filter(Boolean);
+  for (const segment of segments) {
+    const tokens = tokenize(segment.replace(/^\s*\d*\s*>\s*/, ""));
+    let stage: string[] = [];
+    const stages: string[][] = [];
+    for (const t of tokens) {
+      if (t === "|") {
+        stages.push(stage);
+        stage = [];
+      } else {
+        stage.push(t);
+      }
     }
-  } catch (err) {
-    return { ok: false, raw: String(err), json: null };
+    stages.push(stage);
+    for (const argv of stages) {
+      if (!argv.length) continue;
+      if (isAppendDecisionToken(argv[0])) return true;
+      if (isPythonInterp(argv[0]) && argv[1] && isAppendDecisionToken(argv[1])) return true;
+    }
   }
+  return false;
+}
+
+const BD_TIMEOUT_MS = 20_000;
+
+export function runBd(cwd: string, args: string[]): Promise<{ ok: boolean; raw: string; json: unknown }> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value: { ok: boolean; raw: string; json: unknown }) => {
+      if (settled) return;
+      settled = true;
+      resolve(value);
+    };
+
+    let child;
+    try {
+      child = spawn("bd", args, { cwd, env: process.env });
+    } catch (err) {
+      finish({ ok: false, raw: String(err), json: null });
+      return;
+    }
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (d) => {
+      stdout += d;
+    });
+    child.stderr?.on("data", (d) => {
+      stderr += d;
+    });
+    child.on("error", (err) => {
+      finish({ ok: false, raw: String(err), json: null });
+    });
+    child.on("close", (code) => {
+      const raw = String(stdout || stderr || "").trim();
+      if ((code || 0) !== 0) {
+        finish({ ok: false, raw, json: null });
+        return;
+      }
+      if (!raw) {
+        finish({ ok: true, raw: "", json: null });
+        return;
+      }
+      try {
+        finish({ ok: true, raw, json: JSON.parse(raw) });
+      } catch {
+        finish({ ok: true, raw, json: null });
+      }
+    });
+
+    const timer = setTimeout(() => {
+      try {
+        child.kill();
+      } catch {
+        /* ignore */
+      }
+      finish({ ok: false, raw: "bd timed out", json: null });
+    }, BD_TIMEOUT_MS);
+    timer.unref?.();
+  });
 }
 
 export function asIssues(json: unknown): BdIssue[] {
@@ -145,17 +219,16 @@ export function mergeIssues(...lists: BdIssue[][]): BdIssue[] {
  * which runBd forces to null on nonzero exit) so a bd that exits nonzero
  * while still printing JSON still yields the union.
  */
-export async function listLive(
-  pi: { exec: (cmd: string, args: string[], opts?: Record<string, unknown>) => Promise<{ stdout?: string; stderr?: string; code?: number }> },
-  args: string[],
-): Promise<BdIssue[]> {
-  const combined = await runBd(pi, [...args, "--status", "open,in_progress", "--json"]);
+export async function listLive(cwd: string, args: string[]): Promise<BdIssue[]> {
+  const combined = await runBd(cwd, [...args, "--status", "open,in_progress", "--json"]);
   if (combined.ok) {
     return asIssues(combined.json).filter((i) => isLiveStatus(i.status));
   }
+  const [openRes, inProgRes] = await Promise.all(
+    ["open", "in_progress"].map((status) => runBd(cwd, [...args, "--status", status, "--json"])),
+  );
   const buckets: BdIssue[][] = [];
-  for (const status of ["open", "in_progress"]) {
-    const res = await runBd(pi, [...args, "--status", status, "--json"]);
+  for (const res of [openRes, inProgRes]) {
     let parsed: unknown = res.json;
     try {
       parsed = JSON.parse(res.raw);
@@ -165,6 +238,25 @@ export async function listLive(
     buckets.push(asIssues(parsed).filter((i) => isLiveStatus(i.status)));
   }
   return mergeIssues(...buckets);
+}
+
+export async function liveSnapshot(cwd: string): Promise<string> {
+  const [dest, slices, inProgRes, readyRes] = await Promise.all([
+    listLive(cwd, ["list", "--label", "beadfinder:destination", "--type", "epic"]),
+    listLive(cwd, ["list", "--label", "beadfinder:slice"]),
+    runBd(cwd, ["list", "--status", "in_progress", "--json"]),
+    runBd(cwd, ["ready", "--limit", "20", "--json"]),
+  ]);
+  const inProg = asIssues(inProgRes.json);
+  const ready = asIssues(readyRes.json);
+  return [
+    SNAPSHOT_PREFIX,
+    "Beads store: .beads/ (hidden). Query with bd show/list --json.",
+    formatSnapshot(dest, "Live destinations (open + in_progress)"),
+    formatSnapshot(slices, "Live slices (open + in_progress)"),
+    formatSnapshot(inProg, "In progress"),
+    formatSnapshot(ready, "Ready work (bd ready)"),
+  ].join("\n");
 }
 
 export function formatSnapshot(issues: BdIssue[], heading: string): string {
@@ -179,8 +271,8 @@ export function formatSnapshot(issues: BdIssue[], heading: string): string {
   );
 }
 
-export function rememberScriptContext(cwd: string, sid: string, cmd: string): void {
-  const state = loadState(cwd, sid);
+export function rememberScriptContext(cwd: string, sessionID: string, cmd: string): void {
+  const state = loadState(cwd, sessionID);
   if (isSessionBoot(cmd) || isClaimNext(cmd) || isFrontier(cmd)) {
     const parsed = parseClaimNextArgs(cmd);
     if (parsed.persona) state.persona = parsed.persona;
@@ -195,5 +287,32 @@ export function rememberScriptContext(cwd: string, sid: string, cmd: string): vo
       state.claimsThisSession += 1;
     }
   }
-  saveState(cwd, sid, state);
+  saveState(cwd, sessionID, state);
+}
+
+export function extractFirstId(text: string): string {
+  try {
+    const json = JSON.parse(text);
+    const issues = asIssues(json);
+    if (issues[0]) return issueId(issues[0]);
+  } catch {
+    /* not json */
+  }
+  const m = text.match(/\b([a-z][a-z0-9]*-[a-z0-9-]*\.\d+(?:\.\d+)*|[a-z][a-z0-9]*-\d+(?:\.\d+)*)\b/i);
+  return m ? m[1] : "";
+}
+
+export function findClosedMentions(text: string): string[] {
+  const ids: string[] = [];
+  const re = /"id"\s*:\s*"([^"]+)".{0,120}"status"\s*:\s*"(closed|done|complete)"/gis;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) ids.push(m[1]);
+  return ids;
+}
+
+export function modeFromLabels(labels: string[]): "hitl" | "afk" | "" {
+  const blob = labels.join(" ").toLowerCase();
+  if (/\bhitl\b/.test(blob) || /beadfinder:grill/.test(blob)) return "hitl";
+  if (/\bafk\b/.test(blob)) return "afk";
+  return "";
 }

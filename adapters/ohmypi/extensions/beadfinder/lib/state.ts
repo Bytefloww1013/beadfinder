@@ -21,6 +21,7 @@ export type SessionState = {
   mutatingTools: number;
   lastRefreshAt: number;
   lastSnapshot: string;
+  lastSnapshotHash: string;
   seenClosed: Record<string, string>;
   booted: boolean;
 };
@@ -41,6 +42,7 @@ export const emptyState = (): SessionState => ({
   mutatingTools: 0,
   lastRefreshAt: 0,
   lastSnapshot: "",
+  lastSnapshotHash: "",
   seenClosed: {},
   booted: false,
 });
@@ -54,7 +56,7 @@ function loadStore(cwd: string): Store {
   if (raw && typeof raw === "object" && "sessions" in raw && raw.sessions && typeof raw.sessions === "object") {
     return raw as Store;
   }
-  // migrate a flat OMP-shaped file (single SessionState at the top level)
+  // migrate a flat single-session shaped file if someone copied one over
   if (raw && typeof raw === "object" && ("persona" in raw || "claimedId" in raw)) {
     return { sessions: { default: { ...emptyState(), ...(raw as SessionState) } } };
   }

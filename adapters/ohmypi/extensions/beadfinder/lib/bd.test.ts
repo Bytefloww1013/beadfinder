@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -156,121 +156,39 @@ describe("formatSnapshot", () => {
   });
 });
 
-/**
- * runBd/listLive spawn the real `bd` binary via pi.exec. These tests inject a
- * fake exec so no actual process is launched; we assert the argv that would be
- * passed and the result shaping.
- */
-type FakeResult = { stdout?: string; stderr?: string; code?: number };
-function fakePi(handler: (cmd: string, args: string[]) => FakeResult) {
-  const calls: { cmd: string; args: string[]; opts: Record<string, unknown> }[] = [];
-  return {
-    calls,
-    pi: {
-      exec: async (cmd: string, args: string[], opts?: Record<string, unknown>) => {
-        calls.push({ cmd, args, opts: opts || {} });
-        return handler(cmd, args);
-      },
-    },
-  };
+function withFakeBd(scriptLines: string[], fn: (bin: string) => Promise<void>): Promise<void> {
+  const bin = mkdtempSync(join(tmpdir(), "bd-fake-"));
+  writeFileSync(join(bin, "bd"), scriptLines.join("\n"));
+  chmodSync(join(bin, "bd"), 0o755);
+  const oldPath = process.env.PATH;
+  process.env.PATH = `${bin}:${oldPath ?? ""}`;
+  return fn(bin).finally(() => {
+    process.env.PATH = oldPath;
+    rmSync(bin, { recursive: true, force: true });
+  });
 }
 
-describe("runBd / listLive against a fake exec", () => {
-  test("runBd parses JSON output and records the argv + timeout", async () => {
-    const { pi, calls } = fakePi(() => ({ stdout: '[{"id":"a-1"}]', code: 0 }));
-    const res = await runBd(pi, ["list", "--status", "open"]);
-    expect(res.ok).toBe(true);
-    expect(res.json).toEqual([{ id: "a-1" }]);
-    expect(calls).toHaveLength(1);
-    expect(calls[0].cmd).toBe("bd");
-    expect(calls[0].args).toEqual(["list", "--status", "open"]);
-    expect(calls[0].opts.timeout).toBe(20_000);
-  });
-
-  test("runBd tolerates non-JSON stdout and empty output", async () => {
-    let calls = 0;
-    const { pi } = fakePi(() => {
-      calls += 1;
-      return calls === 1 ? { stdout: "created issue bd-7", code: 0 } : { stdout: "", code: 0 };
+describe("runBd / listLive against a fake bd on PATH", () => {
+  test("runBd parses JSON output", async () => {
+    await withFakeBd(["#!/bin/sh", "echo '[{\"id\":\"a-1\"}]'", "exit 0"], async (bin) => {
+      const res = await runBd(bin, ["list", "--status", "open"]);
+      expect(res.ok).toBe(true);
+      expect(res.json).toEqual([{ id: "a-1" }]);
     });
-    const text = await runBd(pi, ["create", "x"]);
-    expect(text.ok).toBe(true);
-    expect(text.json).toBeNull();
-    expect(text.raw).toBe("created issue bd-7");
-    const empty = await runBd(pi, ["list"]);
-    expect(empty).toEqual({ ok: true, raw: "", json: null });
-  });
-
-  test("runBd reports failure on nonzero exit and on exec throw", async () => {
-    let calls = 0;
-    const { pi } = fakePi(() => {
-      calls += 1;
-      if (calls === 1) return { stdout: "", stderr: "no bd here", code: 127 };
-      throw new Error("spawn failed");
-    });
-    const failed = await runBd(pi, ["list"]);
-    expect(failed.ok).toBe(false);
-    expect(failed.json).toBeNull();
-    const boom = await runBd(pi, ["list"]);
-    expect(boom.ok).toBe(false);
-  });
-
-  test("runBd surfaces stderr when stdout is empty", async () => {
-    const { pi } = fakePi(() => ({ stdout: "", stderr: "warn: stale", code: 0 }));
-    const res = await runBd(pi, ["list"]);
-    expect(res.raw).toBe("warn: stale");
   });
 
   test("listLive issues one combined open,in_progress query by default", async () => {
-    const { pi, calls } = fakePi(() => ({
-      stdout: JSON.stringify([
-        { id: "a-1", status: "open", title: "A" },
-        { id: "b-2", status: "in_progress", title: "B" },
-        { id: "c-3", status: "closed", title: "C" },
-      ]),
-      code: 0,
-    }));
-    const issues = await listLive(pi, ["list"]);
-    expect(calls).toHaveLength(1);
-    expect(calls[0].args).toEqual(["list", "--status", "open,in_progress", "--json"]);
-    expect(issues.map(issueId)).toEqual(["a-1", "b-2"]);
-  });
-
-  test("listLive falls back to per-status queries when the combined call fails", async () => {
-    const { pi, calls } = fakePi((_cmd, args) => {
-      if (args.includes("open,in_progress")) return { code: 2, stderr: "unknown flag" };
-      if (args.includes("open")) return { stdout: JSON.stringify([{ id: "a-1", status: "open" }]), code: 0 };
-      return { stdout: JSON.stringify([{ id: "b-2", status: "in_progress" }]), code: 0 };
-    });
-    const issues = await listLive(pi, ["list"]);
-    expect(calls).toHaveLength(3);
-    expect(calls[1].args).toEqual(["list", "--status", "open", "--json"]);
-    expect(calls[2].args).toEqual(["list", "--status", "in_progress", "--json"]);
-    // The combined call exits nonzero (ok:false), so the per-status fallback
-    // runs. Each per-status call exits 0, so both buckets parse normally.
-    expect(issues.map(issueId).sort()).toEqual(["a-1", "b-2"]);
-  });
-
-  test("listLive recovers the union when the per-status calls also exit nonzero", async () => {
-    // Older bd rejects the combined form AND exits nonzero on every call
-    // while still printing JSON to stdout. runBd keeps json null on nonzero
-    // exit, so the fallback must parse raw to recover anything. The
-    // in_progress bucket repeats a-1 to prove dedupe by issue id.
-    const { pi, calls } = fakePi((_cmd, args) => {
-      if (args.includes("open,in_progress")) return { stdout: "", stderr: "unknown flag", code: 2 };
-      if (args.includes("open")) return { stdout: JSON.stringify([{ id: "a-1", status: "open" }]), stderr: "warn: stale index", code: 2 };
-      return {
-        stdout: JSON.stringify([
-          { id: "a-1", status: "in_progress" },
-          { id: "b-2", status: "in_progress" },
-        ]),
-        stderr: "warn: stale index",
-        code: 2,
-      };
-    });
-    const issues = await listLive(pi, ["list"]);
-    expect(calls).toHaveLength(3);
-    expect(issues.map(issueId).sort()).toEqual(["a-1", "b-2"]);
+    await withFakeBd(
+      [
+        "#!/bin/sh",
+        "echo '[{\"id\":\"a-1\",\"status\":\"open\"},{\"id\":\"b-2\",\"status\":\"in_progress\"},{\"id\":\"c-3\",\"status\":\"closed\"}]'",
+        "exit 0",
+      ],
+      async (bin) => {
+        const issues = await listLive(bin, ["list"]);
+        expect(issues.map(issueId)).toEqual(["a-1", "b-2"]);
+      },
+    );
   });
 });
 

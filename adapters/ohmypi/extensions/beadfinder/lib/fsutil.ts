@@ -1,12 +1,37 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import { dirname, join, normalize, relative, resolve, sep } from "node:path";
 
-export function ompRoot(cwd: string): string {
-  return join(cwd, ".omp");
+/**
+ * Host harness dot-dir for per-workspace beadfinder state.
+ *
+ * This file is vendored verbatim into every adapter's lib/ (see
+ * scripts/sync-adapters.ts), so it cannot hardcode one harness's dot-dir.
+ * Resolution order:
+ *   1. BEADFINDER_HOST_DIR env override (dir name or absolute path) — the
+ *      escape hatch for --global installs, where the harness dot-dir lives
+ *      outside the workspace.
+ *   2. the first host dir that already carries a beadfinder/ state dir
+ *      (preserves session continuity when several harnesses share a repo),
+ *   3. the first host dot-dir that exists in cwd (install.sh creates the
+ *      harness dot-dir on local installs),
+ *   4. fallback ".opencode".
+ */
+const HOST_DIRS = [".cline", ".opencode", ".omp"];
+
+export function hostRoot(cwd: string): string {
+  const override = (process.env.BEADFINDER_HOST_DIR || "").trim();
+  if (override) return override.startsWith(".") ? join(cwd, override) : override;
+  for (const d of HOST_DIRS) {
+    if (existsSync(join(cwd, d, "beadfinder"))) return join(cwd, d);
+  }
+  for (const d of HOST_DIRS) {
+    if (existsSync(join(cwd, d))) return join(cwd, d);
+  }
+  return join(cwd, ".opencode");
 }
 
 export function packStateDir(cwd: string): string {
-  return join(ompRoot(cwd), "beadfinder");
+  return join(hostRoot(cwd), "beadfinder");
 }
 
 export function statePath(cwd: string): string {
@@ -14,13 +39,19 @@ export function statePath(cwd: string): string {
 }
 
 export function debugLogPath(cwd: string): string {
-  return join(ompRoot(cwd), "beadfinder-debug.log");
+  return join(hostRoot(cwd), "beadfinder-debug.log");
 }
 
 export function debugSkillInstalled(cwd: string, home = process.env.HOME || ""): boolean {
-  const local = join(cwd, ".omp", "skills", "beadfinder-debug", "SKILL.md");
-  const global = join(home, ".omp", "agent", "skills", "beadfinder-debug", "SKILL.md");
-  return existsSync(local) || existsSync(global);
+  const candidates = [
+    join(cwd, ".cline", "skills", "beadfinder-debug", "SKILL.md"),
+    join(cwd, ".opencode", "skills", "beadfinder-debug", "SKILL.md"),
+    join(cwd, ".omp", "skills", "beadfinder-debug", "SKILL.md"),
+    join(home, ".cline", "skills", "beadfinder-debug", "SKILL.md"),
+    join(home, ".config", "opencode", "skills", "beadfinder-debug", "SKILL.md"),
+    join(home, ".omp", "agent", "skills", "beadfinder-debug", "SKILL.md"),
+  ];
+  return candidates.some((p) => existsSync(p));
 }
 
 export function hooksDisabled(): boolean {

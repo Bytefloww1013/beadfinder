@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { appendLine, debugLogPath, hooksDisabled, ompRoot, packStateDir, posixish, readJson, relToCwd, statePath, writeJson } from "./fsutil.ts";
+import { appendLine, debugLogPath, hooksDisabled, hostRoot, packStateDir, posixish, readJson, relToCwd, statePath, writeJson } from "./fsutil.ts";
 
 describe("OMP fsutil paths", () => {
-  test("state paths nest under .omp/beadfinder/", () => {
-    const cwd = "/tmp/omp-bf-fake-repo";
-    expect(ompRoot(cwd)).toBe(join(cwd, ".omp"));
+  test("state paths nest under .omp/beadfinder/ when that host dir exists", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "omp-bf-host-"));
+    mkdirSync(join(cwd, ".omp", "beadfinder"), { recursive: true });
+    expect(hostRoot(cwd)).toBe(join(cwd, ".omp"));
     expect(packStateDir(cwd)).toBe(join(cwd, ".omp", "beadfinder"));
     expect(statePath(cwd)).toBe(join(cwd, ".omp", "beadfinder", "state.json"));
     expect(debugLogPath(cwd)).toBe(join(cwd, ".omp", "beadfinder-debug.log"));
